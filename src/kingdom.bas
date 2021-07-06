@@ -45,9 +45,9 @@ VDU 26
 Cls
 Print Tab(0, 9)
 Print "Press the RETURN key to start again."
-?
+Print
 Print "Press the ESCAPE key to leave the"
-? "program."
+Print "program."
 REPEAT Until GET$ = Chr$(13) : Goto 200
 800:
 If ERR <> 17 Then REPORT : Print " in line "; ERL : End
@@ -57,9 +57,9 @@ End
 Sub procMAP
   VDU 26
   Cls
-  ?
-  ?
-  ?
+  Print
+  Print
+  Print
   For I = 3 To 23
     Print Y$; W$; Chr$(&h96); "55"; Y$; Tab(27); R$
   Next
@@ -83,54 +83,54 @@ End Sub
 
 Sub procINSTRUCTIONS
   procYELLOW
-  ?
-  ?
-  ?
-  ?
+  Print
+  Print
+  Print
+  Print
   Print "The kingdom is three villages. It"
-  ? "is between the Yellow River and"
-  ? "the mountains."
-  ?
-  ? "You have been chosen to take"
-  ? "all the important decisions. Your "
-  ? "poor predecessor was executed by"
-  ? "thieves who live in the nearby"
-  ? "mountains."
-  ?
-  ? "These thieves live off the "
-  ? "villagers and often attack. The"
-  ? "rice stored in the villages must"
-  ? "be protected at all times."
+  Print "is between the Yellow River and"
+  Print "the mountains."
+  Print
+  Print "You have been chosen to take"
+  Print "all the important decisions. Your "
+  Print "poor predecessor was executed by"
+  Print "thieves who live in the nearby"
+  Print "mountains."
+  Print
+  Print "These thieves live off the "
+  Print "villagers and often attack. The"
+  Print "rice stored in the villages must"
+  Print "be protected at all times."
   procSPACE
   Cls
-  ?
-  ?
-  ?
+  Print
+  Print
+  Print
   Print "The year consists of three long "
-  ? "seasons, Winter, Growing and"
-  ? "Harvest. Rice is planted every"
-  ? "Growing Season. You must decide"
-  ? "how much is planted."
-  ?
-  ? "The river is likely to flood the"
-  ? "fields and the villages. The high"
-  ? "dyke between the river and the"
-  ? "fields must be kept up to prevent"
-  ? "a serious flood."
-  ?
-  ? "The people live off the rice that"
-  ? "they have grown. It is a very poor"
-  ? "living. You must decide what the"
-  ? "people will work at each season"
-  ? "so that they prosper under your"
-  ? "leadership."
+  Print "seasons, Winter, Growing and"
+  Print "Harvest. Rice is planted every"
+  Print "Growing Season. You must decide"
+  Print "how much is planted."
+  Print
+  Print "The river is likely to flood the"
+  Print "fields and the villages. The high"
+  Print "dyke between the river and the"
+  Print "fields must be kept up to prevent"
+  Print "a serious flood."
+  Print
+  Print "The people live off the rice that"
+  Print "they have grown. It is a very poor"
+  Print "living. You must decide what the"
+  Print "people will work at each season"
+  Print "so that they prosper under your"
+  Print "leadership."
   procSPACE
 End Sub
 
 Sub procNEWSEASON
   procYELLOW
   Print Tab(8, 1); "Census Results"
-  ?
+  Print
   If J = 1 Then Goto 3050
   Print "At the start of the "; S$(S); " Season"
   Print "of year "; Y; " of your reign this is"
@@ -141,14 +141,14 @@ Sub procNEWSEASON
   Print "from your unlucky predecessor. It"
   Print "is the start of the Winter Season."
 3100:
-  ?
-  ? "Allowing for births and deaths,"
+  Print
+  Print "Allowing for births and deaths,"
   Print "the population is "; P; ". "
-  ?
+  Print
   Print "There are "; F; " baskets of rice"
   Print "in the village stores."
-  ?
-  ? "How many people should:"
+  Print
+  Print "How many people should:"
   Print " A) Defend the dyke......"
   Print " B) Work in the fields..."
   Print " C) Protect the villages."
@@ -169,8 +169,8 @@ Sub procNEWSEASON
   C = P - (A + B)
   Print Tab(26, QU); C
   If S <> 2 Then Goto 3390
-  ?
-  ? "How many baskets of rice will be"
+  Print
+  Print "How many baskets of rice will be"
   Print "planted in the fields....."
 3330:
   Print Tab(26, 19);
@@ -217,22 +217,22 @@ Sub procENDSEASON
 3800:
   procYELLOW
   Print Tab(3, 2); "Village Leader's Report"
-  ?
-  ? Tab(15 - Len(T$) / 2); Chr$(&h88); T$
-  ?
-  ? "In the "; S$(S); " Season of year "; Y
+  Print
+  Print Tab(15 - Len(T$) / 2); Chr$(&h88); T$
+  Print
+  Print "In the "; S$(S); " Season of year "; Y
   Print "of your reign, the kingdom has"
   Print "suffered these losses:"
-  ?
+  Print
   Print "Deaths from floods.........."; FD
   Print "Deaths from the attacks....."; TD
   Print "Deaths from starvation......"; ST
   Print "Baskets of rice"
-  ? "lost during the floods......"; FF
+  Print "lost during the floods......"; FF
   Print "Baskets of rice"
-  ? "lost during the attacks....."; TF
-  ?
-  ? "The village census follows."
+  Print "lost during the attacks....."; TF
+  Print
+  Print "The village census follows."
   procSPACE
 End Sub
 
@@ -250,27 +250,27 @@ End Sub
 
 Sub procRITUAL
   procYELLOW
-  ?
-  ?
-  ?
+  Print
+  Print
+  Print
   Print "We have survived for "; Y; " years"
   Print "under your glorious control."
   Print "By an ancient custom we must"
   Print "offer you the chance to lay"
   Print "down this terrible burden and"
   Print "resume a normal life."
-  ?
-  ? "In the time honoured fashion"
+  Print
+  Print "In the time honoured fashion"
   Print "I will now ask the ritual"
   Print "question:"
-  ?
+  Print
   PROCWAIT(5)
   Print "Are you prepared to accept"
-  Print "the burden of decision again?"
-  ?
+  Print "the burden of decision againPrint"
+  Print
   Print "You need only answer Yes or No"
   Print "for the people will understand"
-  ? "your reasons."
+  Print "your reasons."
 4670:
   Print Tab(0, 21);
   procYESORNO
