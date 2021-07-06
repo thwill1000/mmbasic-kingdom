@@ -8,9 +8,9 @@ On Error Goto 50
 Mode 7
 Cls
 On Error Goto 800
-procVARIABLE
-procTITLEPAGE
-procINSTRUCTIONS
+procVARIABLE()
+procTITLEPAGE()
+procINSTRUCTIONS()
 200:
 F = 5000 + Rnd(2000)
 P = 300 + Rnd(100)
@@ -20,24 +20,24 @@ S = S + 1
 If S = 4 Then S = 1
 J = J + 1
 Y = (J - 1) DIV 3 + 1
-procNEWSEASON
+procNEWSEASON()
 For V = 1 To 3 : FL(V) = 0 : Next
 TD = 0 : TF = 0 : FD = 0 : FF = 0 : VF = 0
-procMAP
+procMAP()
 procDBL(S$(S) + " Season             Year " + Str$(Y), 1, 1)
 If Rnd(2) = 1 Then Goto 380
-procFLOOD
-procATTACK
+procFLOOD()
+procATTACK()
 Goto 400
 380:
-procATTACK
-procFLOOD
+procATTACK()
+procFLOOD()
 400:
-procCALCULATE
-procENDSEASON
+procCALCULATE()
+procENDSEASON()
 If P = 0 Or F = 0 Then Goto 500
-If J Mod 12 = 0 Then procRITUAL : If Y% = 0 Then Goto 500
-If P < 200 And Rnd(3) = 1 Then procADDTHIEVES
+If J Mod 12 = 0 Then procRITUAL() : If Y% = 0 Then Goto 500
+If P < 200 And Rnd(3) = 1 Then procADDTHIEVES()
 P = Int(P * 1.045)
 Goto 300
 500:
@@ -54,7 +54,8 @@ If ERR <> 17 Then REPORT : Print " in line "; ERL : End
 VDU 26
 Cls
 End
-Sub procMAP
+
+Sub procMAP()
   VDU 26
   Cls
   Print
@@ -81,8 +82,8 @@ Sub procVDRAW(V)
   Print Tab(VX(V) - 2, VY(V)); V$; "^&"; Y$ Tab(VX(V) - 2, VY(V) + 1); V$; "&^"; Y$
 End Sub
 
-Sub procINSTRUCTIONS
-  procYELLOW
+Sub procINSTRUCTIONS()
+  procYELLOW()
   Print
   Print
   Print
@@ -101,7 +102,7 @@ Sub procINSTRUCTIONS
   Print "villagers and often attack. The"
   Print "rice stored in the villages must"
   Print "be protected at all times."
-  procSPACE
+  procSPACE()
   Cls
   Print
   Print
@@ -124,11 +125,11 @@ Sub procINSTRUCTIONS
   Print "people will work at each season"
   Print "so that they prosper under your"
   Print "leadership."
-  procSPACE
+  procSPACE()
 End Sub
 
-Sub procNEWSEASON
-  procYELLOW
+Sub procNEWSEASON()
+  procYELLOW()
   Print Tab(8, 1); "Census Results"
   Print
   If J = 1 Then Goto 3050
@@ -157,7 +158,7 @@ Sub procNEWSEASON
 3210:
   Print Tab(26, QU);
   NI = FNNUMINP
-  If A + NI > P Then procIMPOS : Goto 3210
+  If A + NI > P Then procIMPOS() : Goto 3210
   QU = QU + 1
   If QU = 16 Then B = NI : Goto 3260
   A = NI
@@ -174,14 +175,14 @@ Sub procNEWSEASON
   Print "planted in the fields....."
 3330:
   Print Tab(26, 19);
-  G = FNNUMINP
-  If G > F Then procIMPOS : Goto 3330
+  G = fnNUMINP()
+  If G > F Then procIMPOS() : Goto 3330
   F = F - G
 3390:
-  procSPACE
+  procSPACE()
 End Sub
 
-Sub procENDSEASON
+Sub procENDSEASON()
   procWAIT(1)
   If F > 0 Then Goto 3600
   Cls
@@ -189,7 +190,7 @@ Sub procENDSEASON
   Print "   people have run off and joined up"
   Print "   with the thieves after "; J; " seasons"
   Print "   of your misrule"
-  procSPACE
+  procSPACE()
   Exit Sub
 3600:
   If P > 0 Then Goto 3700
@@ -199,7 +200,7 @@ Sub procENDSEASON
   Print "  after only "; Y; " year";
   If Y <> 1 Then Print "s";
   Print "."
-  procSPACE
+  procSPACE()
   Exit Sub
 3700:
   F1 = P / (FD + TD + ST + 1)
@@ -215,7 +216,7 @@ Sub procENDSEASON
   procWAIT(2)
   Exit Sub
 3800:
-  procYELLOW
+  procYELLOW()
   Print Tab(3, 2); "Village Leader's Report"
   Print
   Print Tab(15 - Len(T$) / 2); Chr$(&h88); T$
@@ -233,23 +234,23 @@ Sub procENDSEASON
   Print "lost during the attacks....."; TF
   Print
   Print "The village census follows."
-  procSPACE
+  procSPACE()
 End Sub
 
-Sub procADDTHIEVES
-  procYELLOW
+Sub procADDTHIEVES()
+  procYELLOW()
   Print Tab(0, 8)
   Print "Thieves have come out of the"
   Print "mountain to join you. They"
   Print "have decided that it will be"
   Print "easier to grow the rice than"
   Print "to steal it!"
-  procSPACE
+  procSPACE()
   P = P + 50 + Rnd(100)
 End Sub
 
-Sub procRITUAL
-  procYELLOW
+Sub procRITUAL()
+  procYELLOW()
   Print
   Print
   Print
@@ -264,7 +265,7 @@ Sub procRITUAL
   Print "I will now ask the ritual"
   Print "question:"
   Print
-  PROCWAIT(5)
+  procWAIT(5)
   Print "Are you prepared to accept"
   Print "the burden of decision againPrint"
   Print
@@ -273,11 +274,11 @@ Sub procRITUAL
   Print "your reasons."
 4670:
   Print Tab(0, 21);
-  procYESORNO
+  procYESORNO()
   If Y% < 0 Then Goto 4670
 End Sub
 
-Sub procATTACK
+Sub procATTACK()
   Local X, Y, I
   ZA = 0 : R = Rnd(1) : On S Goto 5030, 5040, 5050
 5030:
@@ -350,7 +351,7 @@ Sub procATTACK
   F = F - TF
 End Sub
 
-Sub procFLOOD
+Sub procFLOOD()
   Local X, Y
   ZF = 0
   On S Goto 5530, 5540, 5550
@@ -404,7 +405,7 @@ Sub procFLOOD
   If S = 3 Then G = G * (10 - FS) / 10
 End Sub
 
-Sub procCALCULATE
+Sub procCALCULATE()
   If B = 0 Then G = 0 : Goto 6100
   On S Goto 6100, 6030, 6050
 6030:
@@ -433,7 +434,7 @@ Sub procCALCULATE
 6299:
 End Sub
 
-Sub procVARIABLE
+Sub procVARIABLE()
   Dim S$(3), VX(3), VY(3), FL(3)
   S$(1) = "Winter"
   S$(2) = "Growing"
@@ -450,14 +451,14 @@ Sub procVARIABLE
   VY(3) = 18
 End Sub
 
-Sub procIMPOS
+Sub procIMPOS()
   Print Tab(4, 20); Chr$(&h88); Chr$(&h82); "I M P O S S I B L E"
   procWAIT(2)
-  procSPACE
+  procSPACE()
   Print Tab(5, 20); Space$(20); Tab(0, 22); Space$(40)
 End Sub
 
-Sub procYELLOW
+Sub procYELLOW()
   Local I
   Cls
   For I = 0 To 24
@@ -478,15 +479,15 @@ Sub procWAIT(X)
   REPEAT Until TIME - Z > X * 100
 End Sub
 
-Sub procSPACE
+Sub procSPACE()
   Print Tab(0, 22); "Press the SPACE BAR to continue";
-  procKCL
+  procKCL()
   REPEAT Until GET$ = " "
 End Sub
 
-Sub procTITLEPAGE
-  procMAP
-  procOFF
+Sub procTITLEPAGE()
+  procMAP()
+  procOFF()
   procWAIT(2)
   Print Tab(0, 11); Space$(200)
   procDBL(Y$ + "YELLOW RIVER", 11, 11)
@@ -494,16 +495,16 @@ Sub procTITLEPAGE
   I% = INKEY(500)
 End Sub
 
-Sub procKCL
+Sub procKCL()
 8810:
   If Inkey$(0) > "" Then Goto 8810
 End Sub
 
-Sub procOFF
+Sub procOFF()
   VDU 23; 8202; 0; 0; 0;
 End Sub
 
-Sub procON
+Sub procON()
   VDU 23; 29194; 0; 0; 0;
 End Sub
 
@@ -512,8 +513,8 @@ Sub procGPI(F2, ML)
   Local B, B$
   A$ = ""
   Print String$(ML, " "); String$(ML + 1, Chr$(8)); Chr$(&h83);
-  procON
-  procKCL
+  procON()
+  procKCL()
 9040:
   B$ = GET$
   B = Asc(B$)
@@ -530,10 +531,10 @@ Sub procGPI(F2, ML)
   A$ = A$ + B$
   Goto 9040
 9190:
-  procOFF
+  procOFF()
 End Sub
 
-Sub procYESORNO
+Sub procYESORNO()
   Local B$
   procGPI(0, 3)
   B$ = Left$(A$, 1)
@@ -542,7 +543,7 @@ Sub procYESORNO
   If B$ = "N" Or B$ = "n" Then Y% = 0
 End Sub
 
-Function fnNUMINP
+Function fnNUMINP()
   procGPI(1, 6)
   fnNUMINP = Val(A$)
 End Function
