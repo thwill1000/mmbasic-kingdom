@@ -1,0 +1,21 @@
+' Input file for 'sptrans' to convert/format BBC Basic.
+
+'!indent 2
+'!spacing generous
+'!empty-lines 1
+'!replace { DEF PROC%% } { Sub proc%1 }
+'!replace { DEF FN%% } { Function fn%1 }
+'!replace { PROC%% } { proc%1 }
+'!replace { : ENDPROC } { : Exit Sub }
+'!replace { THEN ENDPROC } { Then Exit Sub }
+'!replace ENDPROC { End Sub }
+'!replace GOTO%d { Goto %1 }
+'!replace { THEN %d } { Then Goto %1 }
+'!replace { ELSE %d } { Else Goto %1 }
+'!replace { PRINT '%% } { ? : ? %1 }
+'!replace '%% { : ? %1 }
+'!replace REM%% {' %1 }
+'!replace { Spc ( } { Space$ ( }
+'!replace &%d &h%1
+
+#Include "kingdom.bas"
