@@ -1,549 +1,736 @@
 ' Yellow River Kingdom (aka Hamurabi).
 ' BBC Micro - Version 5 - October 1981.
-' By Tom Hartley and Jerry Temple-Fry (NETHERHALL SCHOOL) and Richard G Warner.
+' By Tom Hartley, Jerry Temple-Fry (NETHERHALL SCHOOL) and Richard G Warner.
 ' Colour Maximite 2 port by Thomas Hugo Williams, 2021.
 
-On Error Goto 50
-50:
-Mode 7
+Option Base 0
+Option Default None
+Option Explicit
+Option Console Serial
+
+#Include "splib/system.inc"
+#Include "splib/txtwm.inc"
+
+Mode 2
+Font 4
 Cls
-On Error Goto 800
-procVARIABLE()
+
+Const VERSION$ = "Version 1.0.0"
+
+twm.init(2, 3742)
+Dim win1% = twm.new_win%(11, 0, 40, 25)
+Dim win2% = twm.new_win%(14, 0, 36, 24)
+
+Dim season_name$(3) = ("", "Winter", "Growing", "Harvest")
+Dim vx%(3) = (0, 13, 21, 22) ' Village x-coordinates
+Dim vy%(3) = (0,  8, 12, 18) ' Village y-coordinates
+Dim food%                    ' Food.
+Dim people%                  ' Population.
+Dim turn%                    ' Turn.
+Dim season%                  ' Season.
+Dim year%                    ' Year.
+Dim workers%                 ' People defending the dyke.
+Dim farmers%                 ' People working in the fields.
+Dim soldiers%                ' People defending the villages.
+Dim planted!                 ' Baskets of rice planted in the fields.
+Dim flooded%(3)              ' Is a village flooded ? (boolean)
+Dim flood_deaths%            ' Number of deaths caused by flooding.
+Dim flood_losses%            ' Food lost to flooding.
+Dim thief_deaths%            ' Number of deaths caused by thieves.
+Dim thief_losses%            ' Food lost to thieves. 
+Dim starvation_deaths%       ' Number of deaths caused by starvation.
+Dim num_flooded%             ' Number of flooded villages.
+Dim was_attacked%            ' Was there an attack ? (boolean)
+Dim was_flooded%             ' Was there a flood ? (boolean)
+
 procTITLEPAGE()
 procINSTRUCTIONS()
-200:
-F = 5000 + Rnd(2000)
-P = 300 + Rnd(100)
-J = 0 : S = 0
-300:
-S = S + 1
-If S = 4 Then S = 1
-J = J + 1
-Y = (J - 1) DIV 3 + 1
-procNEWSEASON()
-For V = 1 To 3 : FL(V) = 0 : Next
-TD = 0 : TF = 0 : FD = 0 : FF = 0 : VF = 0
-procMAP()
-procDBL(S$(S) + " Season             Year " + Str$(Y), 1, 1)
-If Rnd(2) = 1 Then Goto 380
-procFLOOD()
-procATTACK()
-Goto 400
-380:
-procATTACK()
-procFLOOD()
-400:
-procCALCULATE()
-procENDSEASON()
-If P = 0 Or F = 0 Then Goto 500
-If J Mod 12 = 0 Then procRITUAL() : If Y% = 0 Then Goto 500
-If P < 200 And Rnd(3) = 1 Then procADDTHIEVES()
-P = Int(P * 1.045)
-Goto 300
-500:
-VDU 26
-Cls
-Print Tab(0, 9)
-Print "Press the RETURN key to start again."
-Print
-Print "Press the ESCAPE key to leave the"
-Print "program."
-REPEAT Until GET$ = Chr$(13) : Goto 200
-800:
-If ERR <> 17 Then REPORT : Print " in line "; ERL : End
-VDU 26
-Cls
+
+Do
+  procREINIT()
+  procGAMELOOP()
+Loop Until Not fnPLAYAGAIN%()
+
 End
 
-Sub procMAP()
-  VDU 26
-  Cls
-  Print
-  Print
-  Print
-  For I = 3 To 23
-    Print Y$; W$; Chr$(&h96); "55"; Y$; Tab(27); R$
-  Next
-  For I = 3 To 21 Step 2
-    Print Tab(27, I); R$; " x "; Tab(27, I + 1); R$; "x"; Chr$(255); "~x  x"
-    Print Tab(32, I + 2); R$; "x"; Chr$(255); "~x";
-  Next
-  For I = 13 To 15
-    Print Tab(30, I); "  "
-  Next
-  Print Tab(30, 14); "THIEVES"; Tab(31, 13); "TT"; Tab(31, 15); "T"; Tab(32, 16); "T"; Tab(32, 17); "T"
-  Print Tab(0, 23); "   DYKE        VILLAGES      MOUNTAINS";
-  For V = 1 To 3
-    procVDRAW(V)
-  Next
+Sub procTITLEPAGE()
+  procMAP()
+  Pause 2000
+  twm.print_at(0, 11, Space$(200))
+  twm.foreground(twm.YELLOW%)
+  twm.bold(1)
+  twm.print_at(12, 12, "YELLOW RIVER")
+  twm.print_at(12, 13, "   KINGDOM    ")
+  twm.bold(0)
+  twm.print_at(18 - Len(VERSION$) \ 2, 14, VERSION$)
+  Local i% = fnINKEY%(1000)
 End Sub
 
-Sub procVDRAW(V)
-  Print Tab(VX(V) - 2, VY(V)); V$; "^&"; Y$ Tab(VX(V) - 2, VY(V) + 1); V$; "&^"; Y$
+Sub procMAP()
+  Local i%
+  twm.switch(win1%)
+  twm.cls()
+
+  ' Print river.
+  twm.foreground(twm.YELLOW%)
+  For i% = 3 To 23
+    twm.print_at(1, i%, Chr$(219))
+  Next
+
+  ' Print dam.
+  twm.foreground(twm.CYAN%)
+  For i% = 3 To 23
+    twm.print_at(3, i%, Chr$(221) + Chr$(221))
+  Next
+
+  ' Print mountains.
+  twm.foreground(twm.RED%)
+  For i% = 3 To 21 Step 2
+    twm.print_at(29, i%, Chr$(222))
+    twm.print_at(28, i% + 1, Chr$(220) + Chr$(219) + Chr$(219) + Chr$(220) + "  " + Chr$(222))
+    twm.print_at(33, i% + 2, Chr$(220) + Chr$(219) + Chr$(219) + Chr$(220))
+  Next
+
+  ' Print thieves.
+  For i% = 13 To 15 : twm.print_at(30, i%, "  ") : Next
+  twm.print_at(30, 14, "THIEVES")
+  twm.print_at(31, 13, "TT")
+  twm.print_at(31, 15, "T")
+  twm.print_at(32, 16, "T")
+  twm.print_at(32, 17, "T")
+
+  ' Print villages.
+  For i% = 1 To 3 : procVDRAW(i%) : Next
+
+  twm.foreground(twm.white%)
+  twm.print_at(0, 23, "   DYKE        VILLAGES      MOUNTAINS")
+End Sub
+
+Sub procVDRAW(i%)
+  twm.foreground(twm.GREEN%)
+  twm.print_at(vx%(i%) - 1, vy%(i%), Chr$(138) + Chr$(165))
+  twm.print_at(vx%(i%) - 1, vy%(i%) + 1, Chr$(165) + Chr$(138))
 End Sub
 
 Sub procINSTRUCTIONS()
   procYELLOW()
-  Print
-  Print
-  Print
-  Print
-  Print "The kingdom is three villages. It"
-  Print "is between the Yellow River and"
-  Print "the mountains."
-  Print
-  Print "You have been chosen to take"
-  Print "all the important decisions. Your "
-  Print "poor predecessor was executed by"
-  Print "thieves who live in the nearby"
-  Print "mountains."
-  Print
-  Print "These thieves live off the "
-  Print "villagers and often attack. The"
-  Print "rice stored in the villages must"
-  Print "be protected at all times."
+
+  twm.print_at(0,  4, "The kingdom is three villages. It")
+  twm.print_at(0,  5, "is between the Yellow River and")
+  twm.print_at(0,  6, "the mountains.")
+
+  twm.print_at(0,  8, "You have been chosen to take")
+  twm.print_at(0,  9, "all the important decisions. Your")
+  twm.print_at(0, 10, "poor predecessor was executed by")
+  twm.print_at(0, 11, "thieves who live in the nearby")
+  twm.print_at(0, 12, "mountains.")
+
+  twm.print_at(0, 14, "These thieves live off the ")
+  twm.print_at(0, 15, "villagers and often attack. The")
+  twm.print_at(0, 16, "rice stored in the villages must")
+  twm.print_at(0, 17, "be protected at all times.")
+
   procSPACE()
-  Cls
-  Print
-  Print
-  Print
-  Print "The year consists of three long "
-  Print "seasons, Winter, Growing and"
-  Print "Harvest. Rice is planted every"
-  Print "Growing Season. You must decide"
-  Print "how much is planted."
-  Print
-  Print "The river is likely to flood the"
-  Print "fields and the villages. The high"
-  Print "dyke between the river and the"
-  Print "fields must be kept up to prevent"
-  Print "a serious flood."
-  Print
-  Print "The people live off the rice that"
-  Print "they have grown. It is a very poor"
-  Print "living. You must decide what the"
-  Print "people will work at each season"
-  Print "so that they prosper under your"
-  Print "leadership."
+
+  twm.cls()
+
+  twm.print_at(0,  3, "The year consists of three long ")
+  twm.print_at(0,  4, "seasons, Winter, Growing and")
+  twm.print_at(0,  5, "Harvest. Rice is planted every")
+  twm.print_at(0,  6, "Growing Season. You must decide")
+  twm.print_at(0,  7, "how much is planted.")
+
+  twm.print_at(0,  9, "The river is likely to flood the")
+  twm.print_at(0, 10, "fields and the villages. The high")
+  twm.print_at(0, 11, "dyke between the river and the")
+  twm.print_at(0, 12, "fields must be kept up to prevent")
+  twm.print_at(0, 13, "a serious flood.")
+
+  twm.print_at(0, 15, "The people live off the rice that")
+  twm.print_at(0, 16, "they have grown. It is a very poor")
+  twm.print_at(0, 17, "living. You must decide what the")
+  twm.print_at(0, 18, "people will work at each season")
+  twm.print_at(0, 19, "so that they prosper under your")
+  twm.print_at(0, 20, "leadership.")
+
   procSPACE()
-End Sub
-
-Sub procNEWSEASON()
-  procYELLOW()
-  Print Tab(8, 1); "Census Results"
-  Print
-  If J = 1 Then Goto 3050
-  Print "At the start of the "; S$(S); " Season"
-  Print "of year "; Y; " of your reign this is"
-  Print "the situation."
-  Goto 3100
-3050:
-  Print "You have inherited this situation"
-  Print "from your unlucky predecessor. It"
-  Print "is the start of the Winter Season."
-3100:
-  Print
-  Print "Allowing for births and deaths,"
-  Print "the population is "; P; ". "
-  Print
-  Print "There are "; F; " baskets of rice"
-  Print "in the village stores."
-  Print
-  Print "How many people should:"
-  Print " A) Defend the dyke......"
-  Print " B) Work in the fields..."
-  Print " C) Protect the villages."
-  QU = 14
-  A = 0
-3210:
-  Print Tab(26, QU);
-  NI = FNNUMINP
-  If A + NI > P Then procIMPOS() : Goto 3210
-  QU = QU + 1
-  If QU = 16 Then B = NI : Goto 3260
-  A = NI
-  If A < P Then Goto 3210
-  B = 0
-  Print Tab(26, QU); B
-  QU = 16
-3260:
-  C = P - (A + B)
-  Print Tab(26, QU); C
-  If S <> 2 Then Goto 3390
-  Print
-  Print "How many baskets of rice will be"
-  Print "planted in the fields....."
-3330:
-  Print Tab(26, 19);
-  G = fnNUMINP()
-  If G > F Then procIMPOS() : Goto 3330
-  F = F - G
-3390:
-  procSPACE()
-End Sub
-
-Sub procENDSEASON()
-  procWAIT(1)
-  If F > 0 Then Goto 3600
-  Cls
-  Print Tab(3, 7); "There was no food left.All of the"
-  Print "   people have run off and joined up"
-  Print "   with the thieves after "; J; " seasons"
-  Print "   of your misrule"
-  procSPACE()
-  Exit Sub
-3600:
-  If P > 0 Then Goto 3700
-  Cls
-  Print Tab(2, 8); "There is no-one left! They have all"
-  Print "  been killed off by your decisions "
-  Print "  after only "; Y; " year";
-  If Y <> 1 Then Print "s";
-  Print "."
-  procSPACE()
-  Exit Sub
-3700:
-  F1 = P / (FD + TD + ST + 1)
-  F2 = F / (TF + FF + 1)
-  If F2 < F1 Then F1 = F2
-  If F2 < 2 Then T$ = "Disastrous Losses!" : Goto 3800
-  If F1 < 4 Then T$ = "Worrying losses!" : Goto 3800
-  If F1 < 8 Then T$ = "You got off lightly!" : Goto 3800
-  If F / P < 4 Then T$ = "Food supply is low." : Goto 3800
-  If F / P < 2 Then T$ = "Starvation Imminent!" : Goto 3800
-  If ZA + ZF + ST > 0 Then T$ = "Nothing to worry about." : Goto 3800
-  procDBL("             A quiet season           ", 1, 11)
-  procWAIT(2)
-  Exit Sub
-3800:
-  procYELLOW()
-  Print Tab(3, 2); "Village Leader's Report"
-  Print
-  Print Tab(15 - Len(T$) / 2); Chr$(&h88); T$
-  Print
-  Print "In the "; S$(S); " Season of year "; Y
-  Print "of your reign, the kingdom has"
-  Print "suffered these losses:"
-  Print
-  Print "Deaths from floods.........."; FD
-  Print "Deaths from the attacks....."; TD
-  Print "Deaths from starvation......"; ST
-  Print "Baskets of rice"
-  Print "lost during the floods......"; FF
-  Print "Baskets of rice"
-  Print "lost during the attacks....."; TF
-  Print
-  Print "The village census follows."
-  procSPACE()
-End Sub
-
-Sub procADDTHIEVES()
-  procYELLOW()
-  Print Tab(0, 8)
-  Print "Thieves have come out of the"
-  Print "mountain to join you. They"
-  Print "have decided that it will be"
-  Print "easier to grow the rice than"
-  Print "to steal it!"
-  procSPACE()
-  P = P + 50 + Rnd(100)
-End Sub
-
-Sub procRITUAL()
-  procYELLOW()
-  Print
-  Print
-  Print
-  Print "We have survived for "; Y; " years"
-  Print "under your glorious control."
-  Print "By an ancient custom we must"
-  Print "offer you the chance to lay"
-  Print "down this terrible burden and"
-  Print "resume a normal life."
-  Print
-  Print "In the time honoured fashion"
-  Print "I will now ask the ritual"
-  Print "question:"
-  Print
-  procWAIT(5)
-  Print "Are you prepared to accept"
-  Print "the burden of decision againPrint"
-  Print
-  Print "You need only answer Yes or No"
-  Print "for the people will understand"
-  Print "your reasons."
-4670:
-  Print Tab(0, 21);
-  procYESORNO()
-  If Y% < 0 Then Goto 4670
-End Sub
-
-Sub procATTACK()
-  Local X, Y, I
-  ZA = 0 : R = Rnd(1) : On S Goto 5030, 5040, 5050
-5030:
-  If R < .5 Then Exit Sub Else Goto 5060
-5040:
-  If R < .2 Then Exit Sub Else Goto 5060
-5050:
-  If R < .6 Then Exit Sub Else Goto 5060
-5060:
-  ZA = 1
-  If VF = 3 Then Exit Sub
-5100:
-  V = Rnd(3)
-  If FL(V) = 1 Then Goto 5100
-  X = 32
-  WX = VX(V)
-  WY = VY(V) - 1
-  If WY < 17 Then Y = 13 : D = -1 Else Y = 17 : D = 1
-  SY = Y
-5140:
-  Print Tab(X, Y); " "
-  If Y = WY Then Goto 5160
-  Y = Y + D
-  Print Tab(X, Y); "T"
-  procWAIT(.05)
-  Goto 5140
-5160:
-  X = X - 1
-  Print Tab(X - 1, Y); R$; "T"
-  procWAIT(1 - (X - WX) / 5)
-  Print Tab(X, Y);
-  If X = 29 Then Print "x" Else Print " "
-  If X > WX Then Goto 5160
-  For I = 1 To 99
-    Print Tab(X, Y + 1); Chr$(Rnd(94) + 32)
-  Next
-  procVDRAW(V)
-5300:
-  X = X + 1
-  If X < 27 Then Print Tab(X - 2, Y); " "
-  If X = 31 Then Print Tab(29, Y); "x"
-  Print Tab(X - 1, Y); R$; "T"
-  procWAIT(.04)
-  If X < 32 Then Goto 5300
-5340:
-  If Y = SY Then Goto 5400
-  Print Tab(X, Y); " "
-  Y = Y - D
-  Print Tab(X, Y); "T"
-  procWAIT(.05)
-  Goto 5340
-5400:
-  On S Goto 5410, 5420, 5430
-5410:
-  I = 200 + Rnd(70) - C
-  Goto 5440
-5420:
-  I = 30 + Rnd(200) - C
-  Goto 5440
-5430:
-  I = Rnd(400) - C
-5440:
-  I = Int(I)
-  If I < 0 Then I = 0
-  TD = Int(C * I / 400)
-  C = C - TD
-  TF = Int(I * F / 729 + Rnd(2000 - C) / 10)
-  If TF < 0 Then TF = 0
-  If TF > 2000 Then TF = 1900 + Rnd(200)
-  F = F - TF
-End Sub
-
-Sub procFLOOD()
-  Local X, Y
-  ZF = 0
-  On S Goto 5530, 5540, 5550
-5530:
-  FS = Rnd(330) / (A + 1)
-  Goto 5560
-5540:
-  FS = (Rnd(100) + 60) / (A + 1)
-  Goto 5560
-5550:
-  Exit Sub
-5560:
-  If FS < 1 Then Exit Sub
-  X = 6
-  ZF = 1
-  Y = Rnd(8) + 10
-  If FS < 2 Then FS = Rnd(2) Else FS = Rnd(4)
-  Print Tab(1, Y); W$; W$; W$; W$; W$; W$
-  For K = 1 To FS * 100
-    On Rnd(4) Goto 5630, 5640, 5650, 5660
-5630:
-    If X = 25 Then Goto 5620 Else X = X + 1 : Goto 5700
-5640:
-    If X = 6 Then Goto 5620 Else X = X - 1 : Goto 5700
-5650:
-    If Y = 22 Then Goto 5620 Else Y = Y + 1 : Goto 5700
-5660:
-    If Y = 3 Then Goto 5620 Else Y = Y - 1 : Goto 5700
-5700:
-    V = 1
-5720:
-    W1 = VX(V) - X
-    W2 = Y - VY(V)
-    If W2 <> 1 And W2 <> 0 Then Goto 5760
-    If W1 = 0 Or W1 = 1 Then FL(V) = 1
-    If W1 = -1 Then Goto 5780
-5760:
-    V = V + 1
-    If V < 4 Then Goto 5720
-    Print Tab(X, Y); W$
-  Next K
-  VF = FL(1) + FL(2) + FL(3)
-  OP = A + B + C
-  A = Int((A / 10) * (10 - FS))
-  B = Int((B / 10) * (10 - FS))
-  C = Int((C / 6) * (6 - VF))
-  FF = Int(F * VF / 6)
-  F = F - FF
-  FD = OP - A - B - C
-  If S = 2 Then G = G * (20 - FS) / 20
-  If S = 3 Then G = G * (10 - FS) / 10
-End Sub
-
-Sub procCALCULATE()
-  If B = 0 Then G = 0 : Goto 6100
-  On S Goto 6100, 6030, 6050
-6030:
-  If G > 1000 Then G = 1000
-  G = G * (B - 10) / B
-  Goto 6100
-6050:
-  If G < 0 Then Goto 6100
-  G = 18 * (11 + Rnd(3)) * (0.05 - 1 / B) * G
-  If G < 0 Then Goto 6100
-  F = F + Int(G)
-6100:
-  ST = 0
-  P = A + B + C
-  If P = 0 Then Goto 6299
-  T = F / P
-  If T > 5 Then T = 4 : Goto 6200
-  If T < 2 Then P = 0 : Goto 6299
-  If T > 4 Then T = 3.5 : Goto 6200
-  ST = Int(P * (7 - T) / 7)
-  T = 3
-6200:
-  P = P - ST
-  F = Int(F - P * T - ST * T / 2)
-  If F < 0 Then F = 0
-6299:
-End Sub
-
-Sub procVARIABLE()
-  Dim S$(3), VX(3), VY(3), FL(3)
-  S$(1) = "Winter"
-  S$(2) = "Growing"
-  S$(3) = "Harvest"
-  W$ = Chr$(255)
-  Y$ = Chr$(&h93)
-  R$ = Chr$(&h91)
-  V$ = Chr$(&h92)
-  VX(1) = 13
-  VY(1) = 8
-  VX(2) = 21
-  VY(2) = 12
-  VX(3) = 22
-  VY(3) = 18
-End Sub
-
-Sub procIMPOS()
-  Print Tab(4, 20); Chr$(&h88); Chr$(&h82); "I M P O S S I B L E"
-  procWAIT(2)
-  procSPACE()
-  Print Tab(5, 20); Space$(20); Tab(0, 22); Space$(40)
-End Sub
-
-Sub procYELLOW()
-  Local I
-  Cls
-  For I = 0 To 24
-    Print Tab(0, I); Chr$(&h83);
-  Next
-  Print Tab(0, 0);
-  VDU 28, 3, 24, 39, 0
-End Sub
-
-Sub procDBL(X$, X, Y)
-  Print Tab(X - 1, Y); Chr$(141); X$
-  Print Tab(X - 1, Y + 1); Chr$(141); X$
-End Sub
-
-Sub procWAIT(X)
-  Local Z
-  Z = TIME
-  REPEAT Until TIME - Z > X * 100
 End Sub
 
 Sub procSPACE()
-  Print Tab(0, 22); "Press the SPACE BAR to continue";
+  twm.print_at(0, 22, "Press the SPACE BAR to continue")
   procKCL()
-  REPEAT Until GET$ = " "
+  Do While Inkey$ <> " " : Loop
 End Sub
 
-Sub procTITLEPAGE()
-  procMAP()
-  procOFF()
-  procWAIT(2)
-  Print Tab(0, 11); Space$(200)
-  procDBL(Y$ + "YELLOW RIVER", 11, 11)
-  procDBL(Y$ + "KINGDOM", 13, 14)
-  I% = INKEY(500)
+Sub procREINIT()
+  food% = 5000 + fnRND%(2000)
+  people% = 300 + fnRND%(100)
+  turn% = 0
 End Sub
 
+Sub procGAMELOOP()
+  Do
+
+    procNEWTURN()
+    procBEGINSEASON()
+    procMAP()
+    procHEADER()
+
+    If fnRND%(2) = 1 Then
+      procATTACK()
+      procFLOOD()
+    Else
+      procFLOOD()
+      procATTACK()
+    EndIf
+
+    procCALCULATE()
+    procENDSEASON()
+
+    If people% <= 0 Or food% <= 0 Then Exit Do
+
+    If turn% Mod 12 = 0 Then
+      If Not fnRITUAL%() Then Exit Do
+    EndIf
+
+    If people% < 200 And fnRND%(3) = 1 Then procADDTHIEVES()
+
+    ' Make babies.
+    people% = Int(people% * 1.045)
+
+  Loop
+End Sub
+
+Sub procNEWTURN()
+  Inc turn%
+  season% = (turn% - 1) Mod 3 + 1
+  year% = (turn% - 1) \ 3 + 1
+
+  Local i%
+  For i% = 1 To 3 : flooded%(i%) = 0 : Next
+
+  flood_deaths% = 0
+  flood_losses% = 0
+  thief_deaths% = 0
+  thief_losses% = 0
+  num_flooded% = 0
+  was_flooded% = 0
+  was_attacked% = 0
+End Sub
+
+Sub procBEGINSEASON()
+  procYELLOW()
+
+  twm.print_at(8, 1, "Census Results")
+
+  If turn% = 1 Then
+    twm.print_at(0,  3, "You have inherited this situation")
+    twm.print_at(0,  4, "from your unlucky predecessor. It")
+    twm.print_at(0,  5, "is the start of the Winter Season.")
+  Else
+    twm.print_at(0, 3, "At the start of the " + season_name$(season%) + " Season")
+    twm.print_at(0, 4, "of year "+ Str$(year%) + " of your reign this is")
+    twm.print_at(0, 5, "the situation.")
+  EndIf
+
+  twm.print_at(0,  7, "Allowing for births and deaths,")
+  twm.print_at(0,  8, "the population is " + Str$(people%) + ".")
+
+  twm.print_at(0, 10, "There are " + Str$(food%) + " baskets of rice")
+  twm.print_at(0, 11, "in the village stores.")
+
+  twm.print_at(0, 13, "How many people should:")
+  twm.print_at(0, 14, " A) Defend the dyke......")
+  twm.print_at(0, 15, " B) Work in the fields...")
+  twm.print_at(0, 16, " C) Protect the villages.")
+
+  ' Prompt for number of people to defend the dyke.
+  Do
+    twm.print_at(26, 14)
+    workers% = fnNUMINP%()
+    If workers% > people% Then procIMPOS() Else Exit Do
+  Loop
+
+  ' Prompt for number of people to work in the fields.
+  Do
+    twm.print_at(26, 15)
+    If workers% < people% Then
+      farmers% = fnNUMINP%()
+      If workers% + farmers% > people% Then procIMPOS() Else Exit Do
+    Else
+      twm.print("0")
+      Exit Do
+    EndIf
+  Loop
+
+  ' Calculate the number of people to protect the villages.
+  soldiers% = people% - workers% - farmers%
+  twm.print_at(26, 16, Str$(soldiers%))
+
+  If season% = 2 Then
+    twm.print_at(0, 18, "How many baskets of rice will be")
+    twm.print_at(0, 19, "planted in the fields.....")
+    Do
+      twm.print_at(26, 19)
+      planted! = fnNUMINP%()
+      If planted! > food% Then procIMPOS()
+    Loop Until planted! <= food%
+    Inc food%, -planted!
+  EndIf
+
+  procSPACE()
+End Sub
+
+Sub procIMPOS()
+  twm.inverse(1)
+  twm.bold(1)
+  twm.print_at(5, 20, " I M P O S S I B L E ")
+  twm.inverse(0)
+  twm.bold(0)
+  Pause 2000
+  procSPACE()
+  twm.print_at(5, 20, "                     ")
+End Sub
+
+Sub procHEADER()
+  twm.foreground(twm.WHITE%)
+  twm.bold(1)
+  twm.print_at(1,  1, season_name$(season%) + " Season")
+  twm.print_at(28, 1, "Year " + Str$(year%))
+  twm.bold(0)
+End Sub
+
+Sub procATTACK()
+  ' There can be no attack if all the villages have been flooded.
+  If num_flooded% = 3 Then Exit Sub
+
+  Select Case season%
+    Case 1    : If Rnd() < 0.5 Then Exit Sub ' 50% likely to attack in winter
+    Case 2    : If Rnd() < 0.2 Then Exit Sub ' 80% likely to attack in growing season
+    Case 3    : If Rnd() < 0.6 Then Exit Sub ' 40% likely to attack in harvest season
+    Case Else : Error "Unknown season " + Str$(season%)
+  End Select
+
+  ' There has been an attack.
+  was_attacked% = 1
+
+  ' Select an unflooded village to attack.
+  Local village%
+  Do
+    village% = fnRND%(3)
+  Loop Until Not flooded%(village%)
+
+  Local x% = 32, y%
+  Local wx% = vx%(village%)
+  Local wy% = vy%(village%) - 1
+  Local d% ' direction
+  If wy% < 17 Then
+    y% = 13 : d% = -1
+  Else
+    y% = 17 : d% = 1
+  EndIf
+  Local sy% = y%
+
+  twm.foreground(twm.RED%)
+
+  ' Move the thief vertically towards village.
+  Do
+    twm.print_at(x%, y%, " ")
+    If y% = wy% Then Exit Do
+    Inc y%, d%
+    twm.print_at(x%, y%, "T")
+    Pause 50
+  Loop
+
+  ' Move the thief horizontally toward village.
+  Do While x% > wx%
+    Inc x%, -1
+    twm.print_at(x%, y%, "T")
+    Pause 1000 * (1 - Min(0.9, (x% - wx%) / 5))
+    twm.print_at(x%, y%, Choice(x% = 29, Chr$(222), " "))
+  Loop
+
+  ' Attack the village.
+  twm.foreground(twm.GREEN%)
+  Local i%
+  For i% = 1 To 40
+    twm.print_at(x%, y% + 1, Mid$("\|/-", 1 + i% Mod 4, 1))
+    Pause 40
+  Next
+
+  procVDRAW(village%)
+
+  twm.foreground(twm.RED%)
+
+  ' Move the thief horizontally back to the mountains.
+  Do While x% < 32
+    twm.print_at(x%, y%, Choice(x% = 29, Chr$(222), " "))
+    Inc x%
+    twm.print_at(x%, y%, "T")
+    Pause 40
+  Loop
+
+  ' Move the thief vertically back to the mountains.
+  Do While y% <> sy%
+    twm.print_at(x%, y%, " ")
+    Inc y%, -d%
+    twm.print_at(x%, y%, "T")
+    Pause 50
+  Loop
+
+  ' How effective were the thieves ?
+  Select Case season%
+    Case 1 : i% = 200 + fnRND%(70) - soldiers%
+    Case 2 : i% = 30 + fnRND%(200) - soldiers%
+    Case 3 : i% = fnRND%(400) - soldiers%
+    Case Else
+      Error "Unknown season: " + Str$(season%)
+  End Select
+  If i% < 0 Then i% = 0
+
+  ' Thieves kill people.
+  thief_deaths% = Int(soldiers% * i% / 400)
+  soldiers% = soldiers% - thief_deaths%
+
+  ' Thieves steal food.
+  thief_losses% = Int(i% * food% / 729 + fnRND%(2000 - soldiers%) / 10)
+  If thief_losses% < 0 Then
+    thief_losses% = 0
+  ElseIf thief_losses% > 2000 Then
+    thief_losses% = 1900 + fnRND%(200)
+  EndIf
+  Inc food%, -thief_losses%
+End Sub
+
+Sub procFLOOD()
+  Local fs! ' Flood severity.
+  Select Case season%
+    Case 1    : fs! = fnRND%(330) / (workers% + 1)
+    Case 2    : fs! = (fnRND%(100) + 60) / (workers% + 1)
+    Case 3    : Exit Sub
+    Case Else : Error "Unknown season " + Str$(season%)
+  End Select
+
+  If fs! < 1.0 Then Exit Sub
+
+  was_flooded% = 1
+
+  Local x% = 6
+  Local y% = fnRND%(8) + 10
+  twm.foreground(twm.YELLOW%)
+  twm.print_at(1, y%, Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219))
+
+  Local k%, v%, w1%, w2%
+  fs! = fnRND%(Choice(fs! < 2.0, 2.0, 4.0))
+  For k% = 1 To fs! * 100
+    Do
+      Select Case fnRND%(4)
+        Case 1 : If x% < 25 Then Inc x%     : Exit Do
+        Case 2 : If x% > 6  Then Inc x%, -1 : Exit Do
+        Case 3 : If y% < 22 Then Inc y%     : Exit Do
+        Case 4 : If y% > 3  Then Inc y%, -1 : Exit Do
+      End Select
+    Loop
+
+    ' Have any of the villages flooded ?
+    For v% = 1 To 3
+      w1% = vx%(v%) - x%
+      w2% = y% - vy%(v%)
+      If w2% = 0 Or w2% = 1 Then
+        If w1% = 0 Or w1% = 1 Then flooded%(v%) = 1 : Inc num_flooded%
+        If w1% = -1 Then Exit For
+      EndIf
+    Next
+
+    twm.print_at(x%, y%, Chr$(219))
+    Pause 40
+  Next
+
+  ' Deaths.
+  Local orig_pop%  = workers% + farmers% + soldiers%
+  workers% = Int((workers% / 10) * (10 - fs!))
+  farmers% = Int((farmers% / 10) * (10 - fs!))
+  soldiers% = Int((soldiers% / 6) * (6 - num_flooded%))
+  flood_deaths% = orig_pop% - workers% - farmers% - soldiers%
+
+  ' Loss of food from the villages.
+  flood_losses% = Int(food% * num_flooded% / 6)
+  Inc food%, -flood_losses%
+
+  ' Loss of rice in the fields.
+  Select Case season%
+    Case 1    : ' Nothing
+    Case 2    : planted! = planted! * (20 - fs!) / 20
+    Case 3    : planted! = planted! * (10 - fs!) / 10
+    Case Else : Error "Unknown season " + Str$(season%)
+  End Select
+End Sub
+
+Sub procCALCULATE()
+
+  ' How much grain have we grown ?
+  If farmers% = 0 Then
+    planted! = 0
+  Else
+    Select Case season%
+      Case 1 : ' No grain grown during the winter.
+      Case 2
+        If planted! > 1000 Then planted! = 1000
+        planted! = planted! * (farmers% - 10) / farmers%
+      Case 3
+        If planted! > 0 Then planted! = 18 * (11 + fnRND%(3)) * (0.05 - 1 / farmers%) * planted!
+        If planted! > 0 Then food% = food% + Int(planted!)
+      Case Else
+        Error "Unknown season " + Str$(season%)
+    End Select
+  EndIf
+
+  ' How many people have starved ?
+  starvation_deaths% = 0
+  people% = workers% + farmers% + soldiers%
+  If people% <= 0 Then Exit Sub ' Everyone is dead!
+
+  Local t! = food% / people%
+  If t! > 5 Then
+    t! = 4
+  ElseIf t! < 2 Then
+    people% = 0
+  ElseIf t! > 4 Then
+    t! = 3.5
+  Else
+    starvation_deaths% = Int(people% * (7 - t!) / 7)
+    t! = 3
+  EndIf
+
+  If people% > 0 Then
+    Inc people%, -starvation_deaths%
+    food% = Int(food% - people% * t! - starvation_deaths% * t! / 2)
+    If food% < 0 Then food% = 0
+  EndIf
+End Sub
+
+Sub procENDSEASON()
+  Pause 2000
+  If food% <= 0 Then
+    procYELLOW()
+    twm.print_at(0,  7, "There was no food left. All of the")
+    twm.print_at(0,  8, "people have run off and joined up")
+    twm.print_at(0,  9, "with the thieves after " + Str$(turn%) + " seasons")
+    twm.print_at(0, 10, "of your misrule")
+    procSPACE()
+    Exit Sub
+  EndIf
+
+  If people% <= 0 Then
+    procYELLOW()
+    twm.print_at(0,  8, "There is no-one left! They have all")
+    twm.print_at(0,  9, "been killed off by your decisions ")
+    twm.print_at(0, 10, "after only " + Str$(year%) + Choice(year% = 1, " year.", " years."))
+    procSPACE()
+    Exit Sub
+  EndIf
+
+  Local f1! = people% / (flood_deaths% + thief_deaths% + starvation_deaths% + 1)
+  Local f2! = food% / (flood_losses% + thief_losses% + 1)
+  Local msg$
+  If f2! < f1! Then f1! = f2!
+  If f2! < 2 Then
+    msg$ = "Disastrous Losses!"
+  ElseIf f1! < 4 Then
+    msg$ = "Worrying losses!"
+  ElseIf f1! < 8 Then
+    msg$ = "You got off lightly!"
+  ElseIf food% / people% < 4 Then
+    msg$ = "Food supply is low."
+  ElseIf food% / people% < 2 Then
+    msg$ = "Starvation Imminent!"
+  ElseIf was_attacked% + was_flooded% + starvation_deaths% > 0 Then
+    msg$ = "Nothing to worry about."
+  Else
+    twm.bold(1)
+    twm.print_at(1, 11, "                                      ")
+    twm.print_at(1, 12, "             A quiet season           ")
+    twm.print_at(1, 13, "                                      ")
+    twm.bold(0)
+    Pause 2000
+    Exit Sub
+  EndIf
+
+  procYELLOW()
+  twm.print_at(3, 2, "Village Leader's Report")
+
+  twm.inverse(1)
+  twm.print_at(13 - Len(msg$) / 2, 4, " " + msg$ + " ")
+  twm.inverse(0)
+
+  twm.print_at(0,  6, "In the " + season_name$(season%) + " Season of year " + Str$(year%))
+  twm.print_at(0,  7, "of your reign, the kingdom has")
+  twm.print_at(0,  8, "suffered these losses:")
+
+  twm.print_at(0, 10, "Deaths from floods......... " + Str$(flood_deaths%))
+  twm.print_at(0, 11, "Deaths from the attacks.... " + Str$(thief_deaths%))
+  twm.print_at(0, 12, "Deaths from starvation..... " + Str$(starvation_deaths%))
+  twm.print_at(0, 13, "Baskets of rice")
+  twm.print_at(0, 14, "  lost during the floods... " + Str$(flood_losses%))
+  twm.print_at(0, 15, "Baskets of rice")
+  twm.print_at(0, 16, "  lost during the attacks.. " + Str$(thief_losses%))
+
+  twm.print_at(0, 18, "The village census follows.")
+  procSPACE()
+End Sub
+
+Function fnRITUAL%()
+  procYELLOW()
+
+  twm.print_at(0,  3, "We have survived for " + Str$(year%) + " years")
+  twm.print_at(0,  4, "under your glorious control.")
+  twm.print_at(0,  5, "By an ancient custom we must")
+  twm.print_at(0,  6, "offer you the chance to lay")
+  twm.print_at(0,  7, "down this terrible burden and")
+  twm.print_at(0,  8, "resume a normal life.")
+
+  twm.print_at(0, 10, "In the time honoured fashion")
+  twm.print_at(0, 11, "I will now ask the ritual")
+  twm.print_at(0, 12, "question:")
+
+  Pause 2000
+
+  twm.print_at(0, 14, "Are you prepared to accept")
+  twm.print_at(0, 15, "the burden of decision again?")
+
+  twm.print_at(0, 17, "You need only answer Yes or No")
+  twm.print_at(0, 18, "for the people will understand")
+  twm.print_at(0, 19, "your reasons.")
+
+  twm.print_at(0, 21)
+  fnRITUAL% = fnYESORNO%()
+End Function
+
+Sub procADDTHIEVES()
+  procYELLOW()
+  twm.print_at(0,  8, "Thieves have come out of the")
+  twm.print_at(0,  9, "mountain to join you. They")
+  twm.print_at(0, 10, "have decided that it will be")
+  twm.print_at(0, 11, "easier to grow the rice than")
+  twm.print_at(0, 12, "to steal it!")
+  procSPACE()
+  people% = people% + 50 + fnRND%(100)
+End Sub
+
+' Prompts the user to play again.
+'
+' @return  1 if the user wants to play again, otherwise 0.
+Function fnPLAYAGAIN%()
+  procYELLOW()
+  twm.print_at(0,  9, "Press the ENTER key to start again.")
+  twm.print_at(0, 11, "Press the ESCAPE key to leave the")
+  twm.print_at(0, 12, "program.")
+
+  procKCL()
+  Do
+    Select Case Inkey$
+      Case Chr$(10), Chr$(13) : fnPLAYAGAIN% = 1 : Exit Function
+      Case Chr$(27)           : fnPLAYAGAIN% = 0 : Exit Function
+    End Select
+  Loop
+End Function
+
+Sub procYELLOW()
+  twm.switch(win1%)
+  twm.cls()
+  twm.switch(win2%)
+  twm.cls()
+  twm.foreground(twm.YELLOW%)
+End Sub
+
+' Waits up to x% 100ths of a second for a key press.
+Function fnINKEY%(x%)
+  procKCL()
+
+  Local i%, k$
+  Do
+    k$ = Inkey$
+    If k$ <> "" Then Exit Do
+    Pause 10
+    Inc i%
+  Loop Until i% > x%
+  fnINKEY% = Choice(k$ = "", -1, Asc(k$))
+End Function
+
+' Clears the keyboard buffer.
 Sub procKCL()
-8810:
-  If Inkey$(0) > "" Then Goto 8810
-End Sub
-
-Sub procOFF()
-  VDU 23; 8202; 0; 0; 0;
-End Sub
-
-Sub procON()
-  VDU 23; 29194; 0; 0; 0;
+  Do While Inkey$ <> "" : Loop
+  Pause 100 ' Make sure we deal with any delayed LF following a CR.
+  Do While Inkey$ <> "" : Loop
 End Sub
 
 ' General purpose input routine.
-Sub procGPI(F2, ML)
-  Local B, B$
-  A$ = ""
-  Print String$(ML, " "); String$(ML + 1, Chr$(8)); Chr$(&h83);
-  procON()
+Function fnGPI$(expect_num%, max_length%)
+  Local x% = twm.x%, y% = twm.y%
+  twm.print_at(x%, y%, String$(max_length%, " "))
+  twm.print_at(x% - 1, y%, " ")
+  twm.enable_cursor(1)
+
   procKCL()
-9040:
-  B$ = GET$
-  B = Asc(B$)
-  If B = 13 Then Goto 9190
-  If (B = 127 Or B = 8) And A$ = "" Then Goto 9040
-  If (B = 127 Or B = 8) Then A$ = Left$(A$, Len(A$) - 1) : Print B$; " "; B$; : Goto 9040
-  If Len(A$) = ML Or B < 32 Or B > 126 Then Goto 9170
-  If F2 = 0 Or B = 32 Or (B >= 48 And B <= 57) Then Goto 9180
-9170:
-  VDU 7
-  Goto 9040
-9180:
-  Print B$;
-  A$ = A$ + B$
-  Goto 9040
-9190:
-  procOFF()
-End Sub
+  Local k$, kcode%
 
-Sub procYESORNO()
-  Local B$
-  procGPI(0, 3)
-  B$ = Left$(A$, 1)
-  Y% = -1
-  If B$ = "Y" Or B$ = "y" Then Y% = 1
-  If B$ = "N" Or B$ = "n" Then Y% = 0
-End Sub
+  Do
+    Do : k$ = Inkey$ : Loop Until k$ <> ""
+    kcode% = Asc(k$)
 
-Function fnNUMINP()
-  procGPI(1, 6)
-  fnNUMINP = Val(A$)
+    Select Case kcode%
+      Case 10, 13 ' Enter
+        Exit Do
+
+      Case 8, 127 ' Delete and backspace
+        If fnGPI$ <> "" Then
+          fnGPI$ = Left$(fnGPI$, Len(fNGPI$) - 1)
+          twm.print_at(x%, y%, String$(max_length%, " "))
+          twm.print_at(x% - 1, y%, " " + fnGPI$)
+        EndIf
+
+      Case < 32, > 126
+        twm.bell();
+
+      Case Else
+        If expect_num% And (kcode% < 48 Or kcode% > 57) Then
+          twm.bell();
+        ElseIf Len(fnGPI$) = max_length% Then
+          twm.bell();
+        Else
+          twm.print(k$)
+          Cat fnGPI$, k$
+        EndIf
+
+    End Select
+
+  Loop
+
+  twm.enable_cursor(0)
+End Function
+
+' Gets 'Yes' / 'No' input from user.
+'
+' @return  1 if 'Yes', 0 if 'No'.
+Sub fnYESORNO%()
+  Local x% = twm.x%
+  Do
+    twm.x% = x%
+    Select Case Left$(fnGPI$(0, 3), 1)
+      Case "y", "Y" : fnYESORNO% = 1 : Exit Do
+      Case "n", "N" : fnYESORNO% = 0 : Exit Do
+    End Select
+  Loop
+End Function
+
+' Gets number input from user.
+Function fnNUMINP%()
+  Local x% = twm.x%, y% = twm.y%
+  fnNUMINP% = Val(fnGPI$(1, 6))
+  If fnNUMINP% = 0 Then twm.print_at(x%, y%, "0")
+End Function
+
+' Generates a random integer between 1 and x%.
+Function fnRND%(x%)
+  fnRND% = Int(Rnd() * x%) + 1
 End Function
