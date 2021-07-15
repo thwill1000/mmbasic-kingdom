@@ -160,6 +160,7 @@ Sub procSPACE()
   twm.print_at(0, 22, "Press the SPACE BAR to continue")
   procKCL()
   Do While Inkey$ <> " " : Loop
+  twm.print_at(0, 22, "                               ")
 End Sub
 
 Sub procREINIT()
