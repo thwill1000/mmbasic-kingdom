@@ -15,7 +15,7 @@ Mode 2
 Font 4
 Cls
 
-Const VERSION$ = "Version 1.0.0"
+Const VERSION$ = "Version 1.0.1"
 
 twm.init(2, 3742)
 Dim win1% = twm.new_win%(11, 0, 40, 25)
