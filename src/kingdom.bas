@@ -63,7 +63,7 @@ Sub procTITLEPAGE()
   twm.print_at(12, 13, "   KINGDOM    ")
   twm.bold(0)
   twm.print_at(18 - Len(VERSION$) \ 2, 14, VERSION$)
-  Local i% = fnINKEY%(1000)
+  Local i% = fnINKEY%(10000, 1) ' 10 seconds
 End Sub
 
 Sub procMAP()
@@ -421,7 +421,7 @@ Sub procFLOOD()
   twm.foreground(twm.YELLOW%)
   twm.print_at(1, y%, Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219))
 
-  Local k%, v%, w1%, w2%
+  Local k%, key% = -1, v%, w1%, w2%
   fs! = fnRND%(Choice(fs! < 2.0, 2.0, 4.0))
   For k% = 1 To fs! * 100
     Do
@@ -444,7 +444,8 @@ Sub procFLOOD()
     Next
 
     twm.print_at(x%, y%, Chr$(219))
-    Pause 40
+
+    If key% = -1 Then key% = fnINKEY%(100, k% = 1)
   Next
 
   ' Deaths.
@@ -644,17 +645,21 @@ Sub procYELLOW()
   twm.foreground(twm.YELLOW%)
 End Sub
 
-' Waits up to x% 100ths of a second for a key press.
-Function fnINKEY%(x%)
-  procKCL()
+' Waits approximately 'duration%' milliseconds for a key press.
+'
+' @param  duration%   milliseconds to wait.
+' @param  clear_buf%  if 1 then clear the keyboard buffer first.
+' @return             ASCII code of the key pressed, or -1 if none was pressed.
+Function fnINKEY%(duration%, clear_buf%)
+  If clear_buf% Then procKCL()
 
   Local i%, k$
   Do
     k$ = Inkey$
     If k$ <> "" Then Exit Do
     Pause 10
-    Inc i%
-  Loop Until i% > x%
+    Inc i%, 10
+  Loop Until i% >= duration%
   fnINKEY% = Choice(k$ = "", -1, Asc(k$))
 End Function
 
