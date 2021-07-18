@@ -1,0 +1,6 @@
+' Picomite version of "Yellow River Kingdom"
+
+'!set NO_INCLUDE_GUARDS
+'!set CONSOLE_ONLY
+
+#Include "kingdom.bas"

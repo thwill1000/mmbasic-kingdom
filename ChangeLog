@@ -1,14 +1,17 @@
 ChangeLog
 ---------
 
-Version 1.0.1 - 15-July-2021:
+Version 1.0.2 - 18-Jul-2021:
+  - Initial PicoMite version.
+
+Version 1.0.1 - 15-Jul-2021:
   - Fixed bug where 'Press the SPACE BAR to continue' message was
     not removed after player had entered an "IMPOSSIBLE" number and
     then pressed the spacebar.
   - Changed flood animation so it is slower but can be interrupted by
     pressing any key.
 
-Version 1.0.0 - 11-July-2021:
+Version 1.0.0 - 11-Jul-2021:
   - First Colour Maximite 2 port of original BBC Micro version:
       BBC Micro - Version 5 - October 1981.
       By Tom Hartley, Jerry Temple-Fry and Richard G. Warner.
