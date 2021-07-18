@@ -86,7 +86,7 @@ End Sub
 Sub twm.init_serial_attrs()
   Local i%, vt$
 
-  Dim twm.vt$(255)
+  Dim twm.vt$(255) Length 20
 
   For i% = 0 To 255
     ' Clear attributes
@@ -580,7 +580,7 @@ Sub twm.update_vga_cursor()
   Local by% = twm.b% + twm.y%
   Local fg% = Choice(lit%, RGB(Black), RGB(White))
   Text (ax%-1)*twm.fw%,(by%-1)*twm.fh%,"_",,,,fg%,-1
-  Text (ax%-1)*twm.fw%,(by%-1)*twm.fh% + 1,"_",,,,fg%,-1 
+  Text (ax%-1)*twm.fw%,(by%-1)*twm.fh% + 1,"_",,,,fg%,-1
 End Sub
 
 ' Lock/unlock the VGA cursor.
