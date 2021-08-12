@@ -35,7 +35,7 @@ Cls
 
 '!endif
 
-Const VERSION$ = "Version 1.0.2"
+Const VERSION$ = "Version 1.0.3"
 
 twm.init(2, 3742)
 '!remove_if CONSOLE_ONLY
@@ -279,16 +279,16 @@ Sub procBEGINSEASON()
   Loop
 
   ' Prompt for number of people to work in the fields.
-  Do
-    twm.print_at(26, 15)
-    If workers% < people% Then
+  If workers% = people% Then
+    farmers% = 0
+    twm.print_at(26, 15, "0")
+  Else
+    Do
+      twm.print_at(26, 15)
       farmers% = fnNUMINP%()
       If workers% + farmers% > people% Then procIMPOS() Else Exit Do
-    Else
-      twm.print("0")
-      Exit Do
-    EndIf
-  Loop
+    Loop
+  EndIf
 
   ' Calculate the number of people to protect the villages.
   soldiers% = people% - workers% - farmers%

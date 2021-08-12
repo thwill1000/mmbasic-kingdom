@@ -1,4 +1,4 @@
-' Transpiled on 18-07-2021 14:55:49
+' Transpiled on 12-08-2021 22:55:01
 
 ' Picomite version of "Yellow River Kingdom"
 
@@ -65,7 +65,6 @@ Const twm.BLUE%    = 4
 Const twm.MAGENTA% = 5
 Const twm.CYAN%    = 6
 Const twm.WHITE%   = 7
-
 ' All these arrays are created by twm.init() and destroyed by twm.free().
 ' Dim twm.vt$(255)  ' map of attribute values to VT100 control-codes
 ' Dim twm.fg%(255)  ' map of attribute values to VGA foreground colours
@@ -75,7 +74,6 @@ Const twm.WHITE%   = 7
                     ' memory address where the data for window 'i' starts.
 ' Dim twm.c2b%(255) ' map from ASCII chars to box-drawing data.
 ' Dim twm.b2c%(15)  ' map from box-drawing data to ASCII chars.
-
 Dim twm.max_num%    ' max number of windows allowed
 Dim twm.num%        ' current number of windows created
 Dim twm.fw%         ' font width
@@ -172,7 +170,6 @@ Sub twm.init_box_chars()
   twm.c2b%(&hCC) = &b0111
   twm.c2b%(&hCD) = &b1010
   twm.c2b%(&hCE) = &b1111
-
   Dim twm.b2c%(15)
   twm.b2c%(&b1101) = &hB9
   twm.b2c%(&b0101) = &hBA
@@ -594,7 +591,7 @@ Print Chr$(27) "[?25l" Chr$(27) "[2J" Chr$(27) "[H"
 
 ' PROCESSED: !endif
 
-Const VERSION$ = "Version 1.0.2"
+Const VERSION$ = "Version 1.0.3"
 
 twm.init(2, 3742)
 ' PROCESSED: !remove_if CONSOLE_ONLY
@@ -836,17 +833,16 @@ Sub procBEGINSEASON()
   Loop
 
   ' Prompt for number of people to work in the fields.
-  Do
-    twm.print_at(26, 15)
-    If workers% < people% Then
+  If workers% = people% Then
+    farmers% = 0
+    twm.print_at(26, 15, "0")
+  Else
+    Do
+      twm.print_at(26, 15)
       farmers% = fnNUMINP%()
       If workers% + farmers% > people% Then procIMPOS() Else Exit Do
-    Else
-      twm.print("0")
-      Exit Do
-    EndIf
-  Loop
-
+    Loop
+  EndIf
   ' Calculate the number of people to protect the villages.
   soldiers% = people% - workers% - farmers%
   twm.print_at(26, 16, Str$(soldiers%))
