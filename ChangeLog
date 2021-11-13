@@ -1,6 +1,10 @@
 ChangeLog
 ---------
 
+Version 1.0.4 - 13-Nov-2021:
+  - Fixed bug where game crashed when asking the "ritual question";
+    fnYESORNO() was declared as a SUB when it was infact a FUNCTION.
+
 Version 1.0.3 - 12-Aug-2021:
   - Fixed bug where if all the population were assigned as workers then the
     number of farmers would be the same as the previous season, instead of 0.

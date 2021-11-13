@@ -35,7 +35,7 @@ Cls
 
 '!endif
 
-Const VERSION$ = "Version 1.0.3"
+Const VERSION$ = "Version 1.0.4"
 
 twm.init(2, 3742)
 '!remove_if CONSOLE_ONLY
@@ -744,7 +744,7 @@ End Function
 ' Gets 'Yes' / 'No' input from user.
 '
 ' @return  1 if 'Yes', 0 if 'No'.
-Sub fnYESORNO%()
+Function fnYESORNO%()
   Local x% = twm.x%
   Do
     twm.x% = x%
