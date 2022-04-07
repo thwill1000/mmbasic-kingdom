@@ -1,11 +1,11 @@
 # Yellow River Kingdom (aka Hamurabi)
-**Port of the BBC Micro "Yellow River Kingdom" game to the Colour Maximite 2.**
+**Port of the BBC Micro "Yellow River Kingdom" game to MMBasic.**
 
 The original version of [Yellow River Kingdom](http://bbcmicro.co.uk/game.php?id=1996&h=h)
 was an edutainment title included on the BBC Micro Welcome Tape/Disc and is a variant on
 the classic [Hamurabi](https://en.wikipedia.org/wiki/Hamurabi_(video_game)) game.
 
-It was (c) BBC Soft, 1981 and written by Tom Hartley, Jerry Temple-Fry and Richard G Warner.
+It is (c) BBC Soft, 1981 and written by Tom Hartley, Jerry Temple-Fry and Richard G Warner.
 
 I like to think that every British child in the 80's and early 90's would either have played this
 game or at least watched someone else play it on their school BBC Micro (aka Beeb) - often, at
@@ -25,24 +25,46 @@ code: http://brandy.matrixnetwork.co.uk/examples/KINGDOM.
 Please read the [LICENSE](LICENSE) file for further details about modifying and distributing
 this program.
 
-Yellow River Kingdom for the Colour Maximite 2 is distributed for free but if you enjoy it then
+Yellow River Kingdom for MMBasic is distributed for free but if you enjoy it then
 perhaps you would like to buy Tom a coffee?
 [![paypal](https://www.paypalobjects.com/en_GB/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=T5F7BZ5NZFF66&source=url)
 
 ## How do I install it ?
 
  - Download the [latest release](https://github.com/thwill1000/cmm2-kingdom/releases/latest)
- - Extract to a directory of your choice, e.g. ```/kingdom/```
+ - Extract to a directory of your choice, e.g.
+     -  CMM2: `/kingdom/`
+     -  Linux: `~/mmbasic/kingdom/`
+     -  PicoMite: `/kingdom/`
+     -  Windows: `C:\Users\myname\mmbasic\kingdom\`
 
 ## How do I run it ?
- - Type ```chdir "/kingdom"```
- - Type ```*kingdom```
- - The program renders the same "graphics" to both the VGA screen and Serial Console.
-     - The best Serial Console display is obtained using Tera Term with the [CMM2 font](resources/CMM2f1.fon) installed.
+
+ - On the CMM2:
+     - `chdir "/kingdom"`
+     - `*kingdom`
+     - *The program renders the same "graphics" to both the VGA screen and serial console.*
+ - On Linux using MMB4L:
+     - `cd ~/mmbasic/kingdom`
+     - `mmbasic kingdom`
+ - On the PicoMite:
+     - `chdir "/kingdom"`
+     - `run "kingdom_pico"`
+     - *This version outputs to the serial console only (not the PicoMite VGA display).*
+ - On Windows using MMBasic for Windows:
+     - Start `mmbasic.exe`
+     - `chdir "C:\Users\myname\mmbasic\kingdom"`
+     - `*kingdom`
 
 ## FAQ
 
-**1. What is the Colour Maximite 2 ?**
+**1. CMM2/PicoMite: How do I fix the non-ASCII characters in the serial console output ?**
+
+These are supposed to be the "box drawing" and other graphical characters and require the correct font / character-encoding to be used by the terminal program:
+ - On Windows the best display is obtained using Tera Term with the [CMM2 font](resources/CMM2f1.fon) installed.
+ - On Linux the best display is obtained by setting your terminal program to the "Hebrew-IBM862" character-encoding.
+
+**2. What is the Colour Maximite 2 ?**
 
 The Colour Maximite 2 is a small self contained "Boot to BASIC" computer inspired by the home
 computers of the early 80's such as the Tandy TRS-80, Commodore 64 and Apple II.
@@ -59,7 +81,7 @@ more memory and superior graphics and audio capabilities.
 More information can be found on the official Colour Maximite 2 website at
 http://geoffg.net/maximite.html
 
-**2. How do I contact the author ?**
+**3. How do I contact the author ?**
 
 The author can be contacted via:
  - https://github.com as user "thwill1000"
