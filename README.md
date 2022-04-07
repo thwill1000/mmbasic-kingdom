@@ -26,8 +26,9 @@ Please read the [LICENSE](LICENSE) file for further details about modifying and 
 this program.
 
 Yellow River Kingdom for MMBasic is distributed for free but if you enjoy it then
-perhaps you would like to buy Tom a coffee?
-[![paypal](https://www.paypalobjects.com/en_GB/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=T5F7BZ5NZFF66&source=url)
+perhaps you would like to buy me a coffee?
+
+<a href="https://www.buymeacoffee.com/thwill"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="width:217px;"></a>
 
 ## How do I install it ?
 
