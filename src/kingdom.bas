@@ -722,13 +722,13 @@ Function fnGPI$(expect_num%, max_length%)
         EndIf
 
       Case < 32, > 126
-        twm.bell();
+        twm.bell()
 
       Case Else
         If expect_num% And (kcode% < 48 Or kcode% > 57) Then
-          twm.bell();
+          twm.bell()
         ElseIf Len(fnGPI$) = max_length% Then
-          twm.bell();
+          twm.bell()
         Else
           twm.print(k$)
           Cat fnGPI$, k$
