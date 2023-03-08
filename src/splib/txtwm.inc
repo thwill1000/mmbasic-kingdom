@@ -1,8 +1,8 @@
-' Copyright (c) 2021 Thomas Hugo Williams
+' Copyright (c) 2021-2023 Thomas Hugo Williams
 ' License MIT <https://opensource.org/licenses/MIT>
-' For Colour Maximite 2, MMBasic 5.07
+' For MMBasic 5.07
 
-'!remove_if NO_INCLUDE_GUARDS
+'!ifndef NO_INCLUDE_GUARDS
 On Error Skip 1 : Dim sys.VERSION$ = ""
 If sys.VERSION$ = "" Then Error "'system.inc' not included"
 sys.provides("txtwm")
@@ -69,7 +69,7 @@ Sub twm.init(max_num%, mem_sz%)
   twm.max_num% = max_num%
   twm.id%      = -1
   twm.last_at% = -1
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   twm.fw%      = Mm.Info(FontWidth)
   twm.fh%      = Mm.Info(FontHeight)
 '!endif
@@ -111,7 +111,7 @@ Sub twm.init_serial_attrs()
 End Sub
 
 Sub twm.init_screen_attrs()
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   Local bg%, fg%, i%
 
   Dim twm.fg%(255)
@@ -197,7 +197,7 @@ Sub twm.free()
   Erase twm.c2b%()
   Erase twm.b2c%()
   Erase twm.vt$()
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   Erase twm.fg%()
   Erase twm.bg%()
 '!endif
@@ -332,7 +332,7 @@ Sub twm.putc(ch%)
   If twm.last_at% <> at% Then Print vt$; : twm.last_at% = at%
   Print Chr$(27) "[" Str$(by%) ";" Str$(ax%) "H" s$;
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   ' Update VGA display:
   Text (ax%-1)*twm.fw%,(by%-1)*twm.fh%,s$,,,,twm.fg%(at%),twm.bg%(at%)
   If at% And &b01000000 Then Text (ax%-1)*twm.fw%+1,(by%-1)*twm.fh%,s$,,,,twm.fg%(at%),-1
@@ -353,7 +353,7 @@ Sub twm.print(s$)
   Local nc% = Min(twm.w% - twm.x%, ls%) ' number of characters to print on the current line
   Local of%                             ' offset for writing to twm.data%()
   Local at% = twm.at%
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   Local fg% = twm.fg%(at%)
   Local bg% = twm.bg%(at%)
 '!endif
@@ -389,7 +389,7 @@ Sub twm.print(s$)
     ' Update serial console:
     Print Chr$(27) "[" Str$(by%) ";" Str$(ax%) "H" seg$;
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
     ' Update VGA display:
     Text (ax% - 1) * twm.fw%, (by% - 1) * twm.fh%, seg$,,,, fg%, bg%
     If at% And &b01000000 Then Text (ax% - 1) * twm.fw% + 1, (by% - 1) * twm.fh%, seg$,,,, fg%, -1
@@ -476,7 +476,7 @@ Sub twm.redraw()
       If twm.last_at% <> at% Then Print twm.vt$(at%); : twm.last_at% = at%
       Print ch$;
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
       ' Update VGA display:
       Text vx%, vy%, ch$,,,, twm.fg%(at%), twm.bg%(at%)
       If at% And &b01000000 Then Text vx%+1, vy%, ch$,,,, twm.fg%(at%), -1
@@ -552,7 +552,7 @@ End Function
 ' Sends VT100 control-code to hide/show cursor to the serial console.
 Sub twm.enable_cursor(z%)
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   Local s$ = LCase$(Mm.Info$(Option Console))
   Select Case s$
     Case "screen" : Exit Sub
@@ -562,14 +562,14 @@ Sub twm.enable_cursor(z%)
 
   Print Chr$(27) Choice(z%, "[?25h", "[?25l");
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   If s$ = "both" Then Option Console Both
 '!endif
 
   If z% = twm.cursor_enabled% Then Exit Sub
   twm.cursor_enabled% = z%
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   If z% Then
     SetTick 500, twm.update_vga_cursor, 4
   Else
@@ -582,7 +582,7 @@ End Sub
 ' Sounds the console "bell".
 Sub twm.bell()
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   Play Tone 800, 800, 200
   Local s$ = LCase$(Mm.Info$(Option Console))
   Select Case s$
@@ -593,13 +593,13 @@ Sub twm.bell()
 
   Print Chr$(7);
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   If s$ = "both" Then Option Console Both
 '!endif
 
 End Sub
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
 ' Toggle whether the VGA cursor is lit or not,
 ' intended to be called as an ISR via SetTick.
 Sub twm.update_vga_cursor()
@@ -624,7 +624,7 @@ End Sub
 ' Lock/unlock the VGA cursor.
 ' The cursor should be locked whilst manipulating twm.x% & twm.y%
 Sub twm.lock_vga_cursor(lock%)
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
   Inc twm.cursor_locked%, Choice(lock%, 1, -1))
   If twm.id% = -1 Then Exit Sub
 

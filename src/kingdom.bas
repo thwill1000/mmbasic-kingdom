@@ -1,19 +1,19 @@
 ' Yellow River Kingdom (aka Hamurabi).
 ' BBC Micro - Version 5 - October 1981.
 ' By Tom Hartley, Jerry Temple-Fry (NETHERHALL SCHOOL) and Richard G Warner.
-' Colour Maximite 2 port by Thomas Hugo Williams, 2021.
+' MMBasic 5.07 port by Thomas Hugo Williams, 2021-2023.
 
 Option Base 0
 Option Default None
 Option Explicit
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
 Option Console Serial
 '!endif
 
 #Include "splib/system.inc"
 #Include "splib/txtwm.inc"
 
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
 Mode 2
 Font 4
 Cls
@@ -38,7 +38,7 @@ Cls
 Const VERSION$ = "Version 1.0.4"
 
 twm.init(2, 3742)
-'!remove_if CONSOLE_ONLY
+'!ifndef CONSOLE_ONLY
 Dim win1% = twm.new_win%(11, 0, 40, 25)
 Dim win2% = twm.new_win%(14, 0, 36, 24)
 '!endif
