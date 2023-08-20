@@ -1,6 +1,11 @@
 ChangeLog
 ---------
 
+Version 1.1.0 - ????
+  - Many UI changes.
+  - Support for gamepads/joysticks.
+  - Support for transpiling to the GameMite.
+
 Version 1.0.4 - 13-Nov-2021:
   - Fixed bug where game crashed when asking the "ritual question";
     fnYESORNO() was declared as a SUB when it was infact a FUNCTION.

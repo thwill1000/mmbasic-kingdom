@@ -6,50 +6,88 @@
 Option Base 0
 Option Default None
 Option Explicit
-'!ifndef CONSOLE_ONLY
-Option Console Serial
-'!endif
+
+Const VERSION = 10100 ' 1.1.0
 
 #Include "splib/system.inc"
+
+'!if defined PICOMITEVGA
+  '!replace { Page Copy 1 To 0 , B } { FrameBuffer Copy F , N , B }
+  '!replace { Page Write 1 } { FrameBuffer Write F }
+  '!replace { Page Write 0 } { FrameBuffer Write N }
+  '!replace { Mode 7 } { Mode 2 : FrameBuffer Create }
+'!elif defined PICOMITE
+  '!replace { Page Copy 1 To 0 , B } { FrameBuffer Copy F , N }
+  '!replace { Page Write 1 } { FrameBuffer Write F }
+  '!replace { Page Write 0 } { FrameBuffer Write N }
+  '!replace { Mode 7 } { FrameBuffer Create }
+'!endif
+
+#Include "splib/string.inc"
 #Include "splib/txtwm.inc"
+#Include "splib/ctrl.inc"
+#Include "splib/sound.inc"
+'!if defined(PGLCD) || defined(PGLCD2)
+#Include "splib/pglcd.inc"
+'!endif
 
-'!ifndef CONSOLE_ONLY
-Mode 2
-Font 4
+sys.override_break("on_break")
+
+If sys.is_device%("mmb4l") Then
+  Option CodePage CMM2
+  Const CTRL$ = "keys_cursor_ext"
+  Const THIEF$ = "T"
+  Randomize Timer
+ElseIf sys.is_device%("pglcd") Then
+  Const CTRL$ = "ctrl.pglcd2"
+  Const THIEF$ = Chr$(&h98)
+  Randomize Timer
+ElseIf sys.is_device%("cmm2*", "mmb4w") Then
+  Option Console Serial
+  Const CTRL$ = "keys_cursor_ext"
+  Const THIEF$ = Chr$(&h98)
+  Mode 2
+  Font 4
+Else
+  Error "Unsupported device: " + Mm.Device$
+EndIf
+
+If CTRL$ = "keys_cursor_ext" Then
+  Const START_MSG$ = "Press the SPACE BAR to play"
+  Const CONTINUE_MSG$ = "Press the SPACE BAR to continue"
+Else
+  Const START_MSG$ = "Press START to play"
+  Const CONTINUE_MSG$ = "Press A to continue"
+EndIf
+
+ctrl.init_keys()
+Call CTRL$, ctrl.OPEN
+
 Cls
-'!endif
 
-'!uncomment_if CONSOLE_ONLY
+twm.init(3, 4328)
 
-'' Restore cursor and default attributes on exit.
-'Option Break 4
-'On Key 3, my_exit()
-'Sub my_exit()
-'  Print Chr$(27) "[?25h" Chr$(27) "[0m"
-'  Option Break 3
-'  End
-'End Sub
-
-'' Hide cursor, clear console, return cursor to home.
-'Print Chr$(27) "[?25l" Chr$(27) "[2J" Chr$(27) "[H"
-
-'!endif
-
-Const VERSION$ = "Version 1.0.4"
-
-twm.init(2, 3742)
-'!ifndef CONSOLE_ONLY
-Dim win1% = twm.new_win%(11, 0, 40, 25)
-Dim win2% = twm.new_win%(14, 0, 36, 24)
-'!endif
-'!uncomment_if CONSOLE_ONLY
-'Dim win1% = twm.new_win%(3, 0, 40, 25)
-'Dim win2% = twm.new_win%(6, 0, 36, 24)
-'!endif
+If sys.is_device%("pglcd", "mmb4l") Then
+  Const HEIGHT = 20
+  Const WIDTH = 40
+  Const win1% = twm.new_win%(0, 0, WIDTH, HEIGHT)
+  Const win2% = twm.new_win%(3, 0, WIDTH - 4, HEIGHT)
+  Const win_menu% = twm.new_win%(7, 4, 26, 11)
+Else
+  Const HEIGHT = 25
+  Const WIDTH = 40
+  Const win1% = twm.new_win%(11, 0, WIDTH, HEIGHT)
+  Const win2% = twm.new_win%(14, 0, WIDTH - 4, HEIGHT - 1)
+  Const win_menu% = twm.new_win%(17, 8, 26, 11)
+EndIf
 
 Dim season_name$(3) = ("", "Winter", "Growing", "Harvest")
 Dim vx%(3) = (0, 13, 21, 22) ' Village x-coordinates
-Dim vy%(3) = (0,  8, 12, 18) ' Village y-coordinates
+If HEIGHT = 20 Then
+  Dim vy%(3) = (0, HEIGHT - 16, HEIGHT - 12, HEIGHT - 6) ' Village y-coordinates
+Else
+  Dim vy%(3) = (0, HEIGHT - 17, HEIGHT - 13, HEIGHT - 7) ' Village y-coordinates
+EndIf
 Dim food%                    ' Food.
 Dim people%                  ' Population.
 Dim turn%                    ' Turn.
@@ -68,6 +106,12 @@ Dim starvation_deaths%       ' Number of deaths caused by starvation.
 Dim num_flooded%             ' Number of flooded villages.
 Dim was_attacked%            ' Was there an attack ? (boolean)
 Dim was_flooded%             ' Was there a flood ? (boolean)
+Dim use_keyboard% = (CTRL$ = "keys_cursor_ext") ' Use keyboard for number entry.
+
+Dim MUSIC_MO_LI_HUA%(696 \ 8)
+sound.load_data("mo_li_hua_music_data", MUSIC_MO_LI_HUA%())
+sound.init()
+sound.play_music(MUSIC_MO_LI_HUA%())
 
 procTITLEPAGE()
 procINSTRUCTIONS()
@@ -75,61 +119,165 @@ procINSTRUCTIONS()
 Do
   procREINIT()
   procGAMELOOP()
-Loop Until Not fnPLAYAGAIN%()
+  procMENU(1)
+Loop
 
-End
+procEND()
 
 Sub procTITLEPAGE()
   procMAP()
-  Pause 2000
-  twm.print_at(0, 11, Space$(200))
+  Pause 1000
+
+  Const y% = Choice(HEIGHT = 20, 7, 11)
   twm.foreground(twm.YELLOW%)
   twm.bold(1)
-  twm.print_at(12, 12, "YELLOW RIVER")
-  twm.print_at(12, 13, "   KINGDOM    ")
+  twm.print_at(0, y%, Space$(twm.w%))
+  twm.print_at(0, y% + 1, str.centre$("YELLOW RIVER", twm.w%))
+  twm.print_at(0, y% + 2, str.centre$(" KINGDOM", twm.w%))
   twm.bold(0)
-  twm.print_at(18 - Len(VERSION$) \ 2, 14, VERSION$)
-  Local i% = fnINKEY%(10000, 1) ' 10 seconds
+  twm.print_at(0, y% + 3, str.centre$(sys.format_version$(VERSION), twm.w%))
+  twm.print_at(0, y% + 4, Space$(twm.w%))
+  If HEIGHT <> 20 Then twm.print_at(0, twm.h% - 2, Space$(twm.w%))
+  twm.print_at(0, twm.h% - 1, str.centre$(START_MSG$, twm.w%))
+
+  procKCL()
+  Local key%
+  Do
+    Call CTRL$, key%
+    Select Case key%
+      Case 0 ' Do nothing
+      Case ctrl.A, ctrl.START
+        ' For testing purposes even when using the keyboard pressing 'S' will
+        ' cause the game to use the gamepad number entry mechanism.
+        If key% = ctrl.START Then use_keyboard% = 0
+        procOK()
+        Exit Do
+      Case Else
+        procINVALID()
+    End Select
+  Loop
+
+  twm.print_at(0, twm.h% - 1, Space$(twm.w%))
+
+  procMENU(1)
+End Sub
+
+Sub procMENU(new_game%)
+  Const old_win% = twm.id%
+  twm.switch(win_menu%)
+  twm.cls()
+  twm.foreground(twm.YELLOW%)
+  twm.box(0, 0, twm.w%, twm.h%)
+  twm.bold(1)
+  twm.print_at(1, 2, str.centre$("YELLOW RIVER KINGDOM", twm.w% - 2))
+  twm.bold(0)
+
+  Const x% = 5
+  Local key%, sel% = 0, update% = 1
+
+  Do
+    If update% Then
+      twm.inverse(sel% = 0)
+      twm.print_at(x% + 3, 4, Choice(new_game%, " New Game ", " Continue "))
+      twm.inverse(sel% = 1)
+      twm.print_at(x% + 3, 5, "   Quit   ")
+      twm.inverse(0) : twm.print_at(x%, 7, str.decode$("Music    \x95 "))
+      twm.inverse(sel% = 2)
+      twm.print(Choice(sound.enabled% And sound.MUSIC_FLAG%, "ON ", "OFF"))
+      twm.inverse(0)
+      twm.print(str.decode$(" \x94")))
+      twm.inverse(0)
+      twm.print_at(x%, 8, str.decode$("Sound FX \x95 "))
+      twm.inverse(sel% = 3)
+      twm.print(Choice(sound.enabled% And sound.FX_FLAG%, "ON ", "OFF"))
+      twm.inverse(0)
+      twm.print(str.decode$(" \x94")))
+      update% = 0
+    EndIf
+
+    Call CTRL$, key%
+    Select Case key%
+      Case ctrl.A, ctrl.START
+        Select Case sel%
+          Case 0 : procOK() : Exit Do
+          Case 1 : procOK() : procEND()
+        End Select
+      Case ctrl.UP
+        Inc sel%, -1
+        If sel% = -1 Then sel% = 0 Else update% = 1
+      Case ctrl.DOWN
+        Inc sel%, 1
+        If sel% = 4 Then sel% = 3 Else update% = 1
+      Case ctrl.LEFT, ctrl.RIGHT
+        Select Case sel%
+          Case 2
+            If sound.enabled% And sound.MUSIC_FLAG% Then
+              sound.enable(sound.enabled% Xor sound.MUSIC_FLAG%)
+            Else
+              sound.enable(sound.enabled% Or sound.MUSIC_FLAG%)
+              sound.play_music(MUSIC_MO_LI_HUA%())
+            EndIf
+            update% = 1
+          Case 3
+            If sound.enabled% And sound.FX_FLAG% Then
+              sound.enable(sound.enabled% Xor sound.FX_FLAG%)
+            Else
+              sound.enable(sound.enabled% Or sound.FX_FLAG%)
+            EndIf
+            update% = 1
+        End Select
+    End Select
+
+    If update% Then procOK() Else If key% Then procINVALID()
+  Loop
+
+  procKCL()
+  If Not new_game% Then
+    twm.switch(old_win%)
+    twm.redraw()
+  EndIf
 End Sub
 
 Sub procMAP()
-  Local i%
+  Local y%
   twm.switch(win1%)
   twm.cls()
 
   ' Print river.
   twm.foreground(twm.YELLOW%)
-  For i% = 3 To 23
-    twm.print_at(1, i%, Chr$(219))
+  For y% = Choice(HEIGHT = 20, 1, 3) To HEIGHT - 2
+    twm.print_at(1, y%, Chr$(219))
   Next
 
   ' Print dam.
   twm.foreground(twm.CYAN%)
-  For i% = 3 To 23
-    twm.print_at(3, i%, Chr$(221) + Chr$(221))
+  For y% = Choice(HEIGHT = 20, 1, 3) To HEIGHT - 2
+    twm.print_at(3, y%, Chr$(221) + Chr$(221))
   Next
 
   ' Print mountains.
   twm.foreground(twm.RED%)
-  For i% = 3 To 21 Step 2
-    twm.print_at(29, i%, Chr$(222))
-    twm.print_at(28, i% + 1, Chr$(220) + Chr$(219) + Chr$(219) + Chr$(220) + "  " + Chr$(222))
-    twm.print_at(33, i% + 2, Chr$(220) + Chr$(219) + Chr$(219) + Chr$(220))
+  For y% = Choice(HEIGHT = 20, 1, 3) To HEIGHT - 4 Step 2
+    twm.print_at(29, y%, Chr$(222))
+    twm.print_at(28, y% + 1, Chr$(220) + Chr$(219) + Chr$(219) + Chr$(220) + "  " + Chr$(222))
+    twm.print_at(33, y% + 2, Chr$(220) + Chr$(219) + Chr$(219) + Chr$(220))
   Next
 
   ' Print thieves.
-  For i% = 13 To 15 : twm.print_at(30, i%, "  ") : Next
-  twm.print_at(30, 14, "THIEVES")
-  twm.print_at(31, 13, "TT")
-  twm.print_at(31, 15, "T")
-  twm.print_at(32, 16, "T")
-  twm.print_at(32, 17, "T")
+  Local y_top% = Choice(HEIGHT = 20, HEIGHT - 11, HEIGHT - 12)
+  For y% = y_top% To y_top% + 2 : twm.print_at(30, y%, "  ") : Next
+  twm.print_at(31, y_top%,     THIEF$ + THIEF$)
+  twm.print_at(30, y_top% + 1, "THIEVES")
+  twm.print_at(31, y_top% + 2, THIEF$)
+  twm.print_at(32, y_top% + 3, THIEF$)
+  twm.print_at(32, y_top% + 4, THIEF$)
 
   ' Print villages.
-  For i% = 1 To 3 : procVDRAW(i%) : Next
+  For y% = 1 To 3 : procVDRAW(y%) : Next
 
   twm.foreground(twm.white%)
-  twm.print_at(0, 23, "   DYKE        VILLAGES      MOUNTAINS")
+  y% = Choice(HEIGHT = 20, 19, HEIGHT - 2)
+  twm.print_at(0, y%, "   DYKE        VILLAGES      MOUNTAINS")
 End Sub
 
 Sub procVDRAW(i%)
@@ -141,52 +289,69 @@ End Sub
 Sub procINSTRUCTIONS()
   procYELLOW()
 
-  twm.print_at(0,  4, "The kingdom is three villages. It")
-  twm.print_at(0,  5, "is between the Yellow River and")
-  twm.print_at(0,  6, "the mountains.")
+  Const y% = Choice(HEIGHT = 20, 1, 4)
+  twm.print_at(0, y%, "The kingdom is three villages. It")
+  twm.print_at(0, y% + 1, "is between the Yellow River and")
+  twm.print_at(0, y% + 2, "the mountains.")
 
-  twm.print_at(0,  8, "You have been chosen to take")
-  twm.print_at(0,  9, "all the important decisions. Your")
-  twm.print_at(0, 10, "poor predecessor was executed by")
-  twm.print_at(0, 11, "thieves who live in the nearby")
-  twm.print_at(0, 12, "mountains.")
+  twm.print_at(0, y% + 4, "You have been chosen to take")
+  twm.print_at(0, y% + 5, "all the important decisions. Your")
+  twm.print_at(0, y% + 6, "poor predecessor was executed by")
+  twm.print_at(0, y% + 7, "thieves who live in the nearby")
+  twm.print_at(0, y% + 8, "mountains.")
 
-  twm.print_at(0, 14, "These thieves live off the ")
-  twm.print_at(0, 15, "villagers and often attack. The")
-  twm.print_at(0, 16, "rice stored in the villages must")
-  twm.print_at(0, 17, "be protected at all times.")
+  twm.print_at(0, y% + 10, "These thieves live off the ")
+  twm.print_at(0, y% + 11, "villagers and often attack. The")
+  twm.print_at(0, y% + 12, "rice stored in the villages must")
+  twm.print_at(0, y% + 13, "be protected at all times.")
 
   procSPACE()
 
   twm.cls()
 
-  twm.print_at(0,  3, "The year consists of three long ")
-  twm.print_at(0,  4, "seasons, Winter, Growing and")
-  twm.print_at(0,  5, "Harvest. Rice is planted every")
-  twm.print_at(0,  6, "Growing Season. You must decide")
-  twm.print_at(0,  7, "how much is planted.")
+  twm.print_at(0, y% - 1, "The year consists of three long ")
+  twm.print_at(0, y%,     "seasons, Winter, Growing and")
+  twm.print_at(0, y% + 1, "Harvest. Rice is planted every")
+  twm.print_at(0, y% + 2, "Growing Season. You must decide")
+  twm.print_at(0, y% + 3, "how much is planted.")
 
-  twm.print_at(0,  9, "The river is likely to flood the")
-  twm.print_at(0, 10, "fields and the villages. The high")
-  twm.print_at(0, 11, "dyke between the river and the")
-  twm.print_at(0, 12, "fields must be kept up to prevent")
-  twm.print_at(0, 13, "a serious flood.")
+  twm.print_at(0, y% + 5, "The river is likely to flood the")
+  twm.print_at(0, y% + 6, "fields and the villages. The high")
+  twm.print_at(0, y% + 7, "dyke between the river and the")
+  twm.print_at(0, y% + 8, "fields must be kept up to prevent")
+  twm.print_at(0, y% + 9, "a serious flood.")
 
-  twm.print_at(0, 15, "The people live off the rice that")
-  twm.print_at(0, 16, "they have grown. It is a very poor")
-  twm.print_at(0, 17, "living. You must decide what the")
-  twm.print_at(0, 18, "people will work at each season")
-  twm.print_at(0, 19, "so that they prosper under your")
-  twm.print_at(0, 20, "leadership.")
+  twm.print_at(0, y% + 11, "The people live off the rice that")
+  twm.print_at(0, y% + 12, "they have grown. It is a very poor")
+  twm.print_at(0, y% + 13, "living. You must decide what the")
+  twm.print_at(0, y% + 14, "people will work at each season")
+  twm.print_at(0, y% + 15, "so that they prosper under your")
+  twm.print_at(0, y% + 16, "leadership.")
 
   procSPACE()
 End Sub
 
 Sub procSPACE()
-  twm.print_at(0, 22, "Press the SPACE BAR to continue")
+  Const y% = Choice(HEIGHT = 20, 19, 22)
+  twm.print_at(0, y%, str.centre$(CONTINUE_MSG$, twm.w% - 2))
   procKCL()
-  Do While Inkey$ <> " " : Loop
-  twm.print_at(0, 22, "                               ")
+  Local key%
+  Do
+    Call CTRL$, key%
+    Select Case key%
+      Case 0 ' Do nothing
+      Case ctrl.START, ctrl.A
+        procOK()
+        Exit Do
+      Case ctrl.SELECT
+        procOK()
+        procMENU()
+      Case Else
+        procINVALID()
+    End Select
+  Loop
+  procKCL()
+  twm.print_at(0, y%, Space$(twm.w% - 2))
 End Sub
 
 Sub procREINIT()
@@ -271,41 +436,121 @@ Sub procBEGINSEASON()
   twm.print_at(0, 15, " B) Work in the fields...")
   twm.print_at(0, 16, " C) Protect the villages.")
 
-  ' Prompt for number of people to defend the dyke.
-  Do
-    twm.print_at(26, 14)
-    workers% = fnNUMINP%()
-    If workers% > people% Then procIMPOS() Else Exit Do
-  Loop
-
-  ' Prompt for number of people to work in the fields.
-  If workers% = people% Then
-    farmers% = 0
-    twm.print_at(26, 15, "0")
-  Else
+  If use_keyboard% Then
+    ' Prompt for number of people to defend the dyke.
     Do
-      twm.print_at(26, 15)
-      farmers% = fnNUMINP%()
-      If workers% + farmers% > people% Then procIMPOS() Else Exit Do
+      workers% = fnNUMKEYS%(26, 14, 6)
+      If workers% > people% Then procIMPOS() Else Exit Do
     Loop
-  EndIf
 
-  ' Calculate the number of people to protect the villages.
-  soldiers% = people% - workers% - farmers%
-  twm.print_at(26, 16, Str$(soldiers%))
+    ' Prompt for number of people to work in the fields.
+    If workers% = people% Then
+      farmers% = 0
+      twm.print_at(26, 15, "0")
+    Else
+      Do
+        farmers% = fnNUMKEYS%(26, 15, 6)
+        If workers% + farmers% > people% Then procIMPOS() Else Exit Do
+      Loop
+    EndIf
 
-  If season% = 2 Then
-    twm.print_at(0, 18, "How many baskets of rice will be")
-    twm.print_at(0, 19, "planted in the fields.....")
+    ' Calculate the number of people to protect the villages.
+    soldiers% = people% - workers% - farmers%
+    twm.print_at(26, 16, Str$(soldiers%))
+
+    If season% = 2 Then
+      twm.print_at(0, 18, "How many baskets of rice will be")
+      twm.print_at(0, 19, "planted in the fields.....")
+      Do
+        planted! = fnNUMKEYS%(26, 19, 6)
+        If planted! > food% Then procIMPOS()
+      Loop Until planted! <= food%
+      Inc food%, -planted!
+    EndIf
+
+    procSPACE()
+  Else
+    Local i%, key%, cb$ = "people_change_cb"
+    workers% = (people% \ 20) * 5
+    farmers% = (people% \ 20) * 5
+    soldiers% = (people% \ 20) * 5
+    twm.print_at(28, 14, Format$(workers%, "%4g"))
+    twm.print_at(28, 15, Format$(farmers%, "%4g"))
+    twm.print_at(28, 16, Format$(soldiers%, "%4g"))
     Do
-      twm.print_at(26, 19)
-      planted! = fnNUMINP%()
-      If planted! > food% Then procIMPOS()
-    Loop Until planted! <= food%
-    Inc food%, -planted!
+      Select Case i%
+        Case 0 ' Workers
+          workers% = fnNUMGAMEPAD%(26, 14, workers%, people% - farmers% - soldiers%, key%, cb$)
+        Case 1 ' Farmers
+          farmers% = fnNUMGAMEPAD%(26, 15, farmers%, people% - workers% - soldiers%, key%, cb$)
+        Case 2 ' Soldiers
+          soldiers% = fnNUMGAMEPAD%(26, 16, soldiers%, people% - workers% - farmers%, key%, cb$)
+      End Select
+
+      Select Case key%
+        Case ctrl.A
+          If workers% + farmers% + soldiers% = people% Then
+            procOK()
+            Exit Do
+          Else
+            procINVALID()
+          EndIf
+        Case ctrl.UP
+          If i% = 0 Then procINVALID() Else Inc i%, -1
+        Case ctrl.DOWN
+          If i% = 2 Then procINVALID() Else Inc i%
+        Case ctrl.SELECT
+          procOK()
+          procMENU()
+        Case Else
+          procINVALID()
+      End Select
+    Loop
+
+    procKCL()
+
+    If season% = 2 Then
+      twm.print_at(0, 13, "How many baskets of rice will be  ")
+      twm.print_at(0, 14, "planted in the fields....         ")
+      twm.print_at(0, 15, "                                  ")
+      twm.print_at(0, 16, "                                  ")
+      planted! = Min(food% \ 3, 500)
+      Do
+        planted! = fnNUMGAMEPAD%(26, 14, planted!, food%, key%)
+        If key% = ctrl.A And planted! > 0 Then
+          procOK()
+          Exit Do
+        Else
+          procINVALID()
+        EndIf
+      Loop
+      Inc food%, -planted!
+    EndIf
+
   EndIf
 
-  procSPACE()
+End Sub
+
+Sub people_change_cb(y%, value%)
+  Local remaining%
+  Select Case y%
+    Case 14 ' Workers
+      remaining% = people% - farmers% - soldiers% - value%
+    Case 15 ' Farmers
+      remaining% = people% - workers% - soldiers% - value%
+    Case 16 ' Soldiers
+      remaining% = people% - farmers% - workers% - value%
+    Case Else
+      Error "Invalid state"
+  End Select
+  Local msg$
+  Select Case remaining%
+    Case 0 : msg$ = CONTINUE_MSG$
+    Case 1 : msg$ = "1 unallocated villager"
+    Case Else : msg$ = Str$(remaining%) + " unallocated villagers"
+  End Select
+
+  twm.print_at(0, Choice(HEIGHT = 20, 18, 21), str.centre$(msg$, twm.w% - 2))
 End Sub
 
 Sub procIMPOS()
@@ -322,8 +567,9 @@ End Sub
 Sub procHEADER()
   twm.foreground(twm.WHITE%)
   twm.bold(1)
-  twm.print_at(1,  1, season_name$(season%) + " Season")
-  twm.print_at(28, 1, "Year " + Str$(year%))
+  Const y% = Choice(HEIGHT = 20, 0, 1)
+  twm.print_at(1,  y%, season_name$(season%) + " Season")
+  twm.print_at(28, y%, "Year " + Str$(year%))
   twm.bold(0)
 End Sub
 
@@ -351,10 +597,10 @@ Sub procATTACK()
   Local wx% = vx%(village%)
   Local wy% = vy%(village%) - 1
   Local d% ' direction
-  If wy% < 17 Then
-    y% = 13 : d% = -1
+  If wy% < HEIGHT - 8 Then
+    y% = HEIGHT - 12 : d% = -1
   Else
-    y% = 17 : d% = 1
+    y% = HEIGHT - 8 : d% = 1
   EndIf
   Local sy% = y%
 
@@ -365,14 +611,14 @@ Sub procATTACK()
     twm.print_at(x%, y%, " ")
     If y% = wy% Then Exit Do
     Inc y%, d%
-    twm.print_at(x%, y%, "T")
+    twm.print_at(x%, y%, THIEF$)
     Pause 50
   Loop
 
   ' Move the thief horizontally toward village.
   Do While x% > wx%
     Inc x%, -1
-    twm.print_at(x%, y%, "T")
+    twm.print_at(x%, y%, THIEF$)
     Pause 1000 * (1 - Min(0.9, (x% - wx%) / 5))
     twm.print_at(x%, y%, Choice(x% = 29, Chr$(222), " "))
   Loop
@@ -393,7 +639,7 @@ Sub procATTACK()
   Do While x% < 32
     twm.print_at(x%, y%, Choice(x% = 29, Chr$(222), " "))
     Inc x%
-    twm.print_at(x%, y%, "T")
+    twm.print_at(x%, y%, THIEF$)
     Pause 40
   Loop
 
@@ -401,7 +647,7 @@ Sub procATTACK()
   Do While y% <> sy%
     twm.print_at(x%, y%, " ")
     Inc y%, -d%
-    twm.print_at(x%, y%, "T")
+    twm.print_at(x%, y%, THIEF$)
     Pause 50
   Loop
 
@@ -447,14 +693,15 @@ Sub procFLOOD()
   twm.foreground(twm.YELLOW%)
   twm.print_at(1, y%, Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219) + Chr$(219))
 
-  Local k%, key% = -1, v%, w1%, w2%
+  Local k%, key%, v%, w1%, w2%
   fs! = fnRND%(Choice(fs! < 2.0, 2.0, 4.0))
+  procKCL()
   For k% = 1 To fs! * 100
     Do
       Select Case fnRND%(4)
         Case 1 : If x% < 25 Then Inc x%     : Exit Do
         Case 2 : If x% > 6  Then Inc x%, -1 : Exit Do
-        Case 3 : If y% < 22 Then Inc y%     : Exit Do
+        Case 3 : If y% < HEIGHT - 3 Then Inc y% : Exit Do
         Case 4 : If y% > 3  Then Inc y%, -1 : Exit Do
       End Select
     Loop
@@ -471,7 +718,7 @@ Sub procFLOOD()
 
     twm.print_at(x%, y%, Chr$(219))
 
-    If key% = -1 Then key% = fnINKEY%(100, k% = 1)
+    If Not key% Then key% = fnWAITFORKEY%(100)
   Next
 
   ' Deaths.
@@ -575,93 +822,78 @@ Sub procENDSEASON()
   ElseIf was_attacked% + was_flooded% + starvation_deaths% > 0 Then
     msg$ = "Nothing to worry about."
   Else
+    Local y% = Choice(HEIGHT = 20, 8, 11)
     twm.bold(1)
-    twm.print_at(1, 11, "                                      ")
-    twm.print_at(1, 12, "             A quiet season           ")
-    twm.print_at(1, 13, "                                      ")
+    twm.print_at(1, y%,     "                                      ")
+    twm.print_at(1, y% + 1, "             A quiet season           ")
+    twm.print_at(1, y% + 2, "                                      ")
     twm.bold(0)
     Pause 2000
     Exit Sub
   EndIf
 
   procYELLOW()
-  twm.print_at(3, 2, "Village Leader's Report")
+  Const y% = Choice(HEIGHT = 20, 1, 2)
+  twm.print_at(3, y%, "Village Leader's Report")
 
   twm.inverse(1)
-  twm.print_at(13 - Len(msg$) / 2, 4, " " + msg$ + " ")
+  twm.print_at(13 - Len(msg$) / 2, y% + 2, " " + msg$ + " ")
   twm.inverse(0)
 
-  twm.print_at(0,  6, "In the " + season_name$(season%) + " Season of year " + Str$(year%))
-  twm.print_at(0,  7, "of your reign, the kingdom has")
-  twm.print_at(0,  8, "suffered these losses:")
+  twm.print_at(0, y% + 4, "In the " + season_name$(season%) + " Season of year " + Str$(year%))
+  twm.print_at(0, y% + 5, "of your reign, the kingdom has")
+  twm.print_at(0, y% + 6, "suffered these losses:")
 
-  twm.print_at(0, 10, "Deaths from floods......... " + Str$(flood_deaths%))
-  twm.print_at(0, 11, "Deaths from the attacks.... " + Str$(thief_deaths%))
-  twm.print_at(0, 12, "Deaths from starvation..... " + Str$(starvation_deaths%))
-  twm.print_at(0, 13, "Baskets of rice")
-  twm.print_at(0, 14, "  lost during the floods... " + Str$(flood_losses%))
-  twm.print_at(0, 15, "Baskets of rice")
-  twm.print_at(0, 16, "  lost during the attacks.. " + Str$(thief_losses%))
+  twm.print_at(0, y% + 8,  "Deaths from floods......... " + Format$(flood_deaths%, "%4g"))
+  twm.print_at(0, y% + 9,  "Deaths from the attacks.... " + Format$(thief_deaths%, "%4g"))
+  twm.print_at(0, y% + 10, "Deaths from starvation..... " + Format$(starvation_deaths%, "%4g"))
+  twm.print_at(0, y% + 11, "Baskets of rice")
+  twm.print_at(0, y% + 12, "  lost during the floods... " + Format$(flood_losses%, "%4g"))
+  twm.print_at(0, y% + 13, "Baskets of rice")
+  twm.print_at(0, y% + 14, "  lost during the attacks.. " + Format$(thief_losses%, "%4g"))
 
-  twm.print_at(0, 18, "The village census follows.")
+  twm.print_at(0, y% + 16, "The village census follows.")
   procSPACE()
 End Sub
 
 Function fnRITUAL%()
+  Const y% = Choice(HEIGHT = 20, 1, 3)
   procYELLOW()
 
-  twm.print_at(0,  3, "We have survived for " + Str$(year%) + " years")
-  twm.print_at(0,  4, "under your glorious control.")
-  twm.print_at(0,  5, "By an ancient custom we must")
-  twm.print_at(0,  6, "offer you the chance to lay")
-  twm.print_at(0,  7, "down this terrible burden and")
-  twm.print_at(0,  8, "resume a normal life.")
+  twm.print_at(2, y%,     "We have survived for " + Str$(year%) + " years")
+  twm.print_at(2, y% + 1, "under your glorious control.")
+  twm.print_at(2, y% + 2, "By an ancient custom we must")
+  twm.print_at(2, y% + 3, "offer you the chance to lay")
+  twm.print_at(2, y% + 4, "down this terrible burden and")
+  twm.print_at(2, y% + 5, "resume a normal life.")
 
-  twm.print_at(0, 10, "In the time honoured fashion")
-  twm.print_at(0, 11, "I will now ask the ritual")
-  twm.print_at(0, 12, "question:")
+  twm.print_at(2, y% + 7, "In the time honoured fashion")
+  twm.print_at(2, y% + 8, "I will now ask the ritual")
+  twm.print_at(2, y% + 9, "question:")
 
   Pause 2000
 
-  twm.print_at(0, 14, "Are you prepared to accept")
-  twm.print_at(0, 15, "the burden of decision again?")
+  twm.print_at(2, y% + 11, "Are you prepared to accept")
+  twm.print_at(2, y% + 12, "the burden of decision again?")
 
-  twm.print_at(0, 17, "You need only answer Yes or No")
-  twm.print_at(0, 18, "for the people will understand")
-  twm.print_at(0, 19, "your reasons.")
+  twm.print_at(2, y% + 14, "You need only answer Yes or No")
+  twm.print_at(2, y% + 15, "for the people will understand")
+  twm.print_at(2, y% + 16, "your reasons.")
 
-  twm.print_at(0, 21)
-  fnRITUAL% = fnYESORNO%()
+  fnRITUAL% = fnYESORNO%(y% + 18)
 End Function
 
 Sub procADDTHIEVES()
+  Const y% = Choice(HEIGHT = 20, 7, 8)
   procYELLOW()
-  twm.print_at(0,  8, "Thieves have come out of the")
-  twm.print_at(0,  9, "mountain to join you. They")
-  twm.print_at(0, 10, "have decided that it will be")
-  twm.print_at(0, 11, "easier to grow the rice than")
-  twm.print_at(0, 12, "to steal it!")
+  twm.print_at(0, y%,     "Thieves have come out of the")
+  twm.print_at(0, y% + 1, "mountain to join you. They")
+  twm.print_at(0, y% + 2, "have decided that it will be")
+  twm.print_at(0, y% + 3, "easier to grow the rice than")
+  twm.print_at(0, y% + 4, "to steal it!")
   procSPACE()
   people% = people% + 50 + fnRND%(100)
 End Sub
-
-' Prompts the user to play again.
-'
-' @return  1 if the user wants to play again, otherwise 0.
-Function fnPLAYAGAIN%()
-  procYELLOW()
-  twm.print_at(0,  9, "Press the ENTER key to start again.")
-  twm.print_at(0, 11, "Press the ESCAPE key to leave the")
-  twm.print_at(0, 12, "program.")
-
-  procKCL()
-  Do
-    Select Case Inkey$
-      Case Chr$(10), Chr$(13) : fnPLAYAGAIN% = 1 : Exit Function
-      Case Chr$(27)           : fnPLAYAGAIN% = 0 : Exit Function
-    End Select
-  Loop
-End Function
 
 Sub procYELLOW()
   twm.switch(win1%)
@@ -671,40 +903,36 @@ Sub procYELLOW()
   twm.foreground(twm.YELLOW%)
 End Sub
 
-' Waits approximately 'duration%' milliseconds for a key press.
+' Waits approximately 'duration%' milliseconds for START/SPACE/A
 '
 ' @param  duration%   milliseconds to wait.
-' @param  clear_buf%  if 1 then clear the keyboard buffer first.
-' @return             ASCII code of the key pressed, or -1 if none was pressed.
-Function fnINKEY%(duration%, clear_buf%)
-  If clear_buf% Then procKCL()
-
-  Local i%, k$
-  Do
-    k$ = Inkey$
-    If k$ <> "" Then Exit Do
-    Pause 10
-    Inc i%, 10
-  Loop Until i% >= duration%
-  fnINKEY% = Choice(k$ = "", -1, Asc(k$))
+' @return             ctrl code of key pressed, or 0 if none was pressed.
+Function fnWAITFORKEY%(duration%)
+  Local expires% = Timer + duration%
+  Do While Timer < expires%
+    Call CTRL$, fnWAITFORKEY%
+    If fnWAITFORKEY% = ctrl.A Or fnWAITFORKEY% = ctrl.START Then Exit Do
+  Loop
 End Function
 
-' Clears the keyboard buffer.
+' Clears the input buffer.
 Sub procKCL()
-  Do While Inkey$ <> "" : Loop
   Pause 100 ' Make sure we deal with any delayed LF following a CR.
-  Do While Inkey$ <> "" : Loop
+  ctrl.term_keys()
+  Local key%
+  Do : Call ctrl$, key% : Loop Until Not key%
+  ctrl.init_keys()
 End Sub
 
-' General purpose input routine.
+' General purpose keyboard input routine.
 Function fnGPI$(expect_num%, max_length%)
-  Local x% = twm.x%, y% = twm.y%
+  Local k$, kcode%, x% = twm.x%, y% = twm.y%
+
   twm.print_at(x%, y%, String$(max_length%, " "))
   twm.print_at(x% - 1, y%, " ")
-  twm.enable_cursor(1)
 
-  procKCL()
-  Local k$, kcode%
+  ctrl.term_keys() ' So we can use INKEY$
+  twm.enable_cursor(1)
 
   Do
     Do : k$ = Inkey$ : Loop Until k$ <> ""
@@ -722,13 +950,13 @@ Function fnGPI$(expect_num%, max_length%)
         EndIf
 
       Case < 32, > 126
-        twm.bell()
+        procINVALID()
 
       Case Else
         If expect_num% And (kcode% < 48 Or kcode% > 57) Then
-          twm.bell()
+          procINVALID()
         ElseIf Len(fnGPI$) = max_length% Then
-          twm.bell()
+          procINVALID()
         Else
           twm.print(k$)
           Cat fnGPI$, k$
@@ -738,31 +966,169 @@ Function fnGPI$(expect_num%, max_length%)
 
   Loop
 
+  ctrl.init_keys()
   twm.enable_cursor(0)
 End Function
 
 ' Gets 'Yes' / 'No' input from user.
 '
 ' @return  1 if 'Yes', 0 if 'No'.
-Function fnYESORNO%()
-  Local x% = twm.x%
+Function fnYESORNO%(y%)
+  procKCL()
+
+  Local key%, update% = 1
   Do
-    twm.x% = x%
-    Select Case Left$(fnGPI$(0, 3), 1)
-      Case "y", "Y" : fnYESORNO% = 1 : Exit Do
-      Case "n", "N" : fnYESORNO% = 0 : Exit Do
-    End Select
+    If update% Then
+      If fnYESORNO% < 0 Then procINVALID() : fnYESORNO% = 0
+      If fnYESORNO% > 1 Then procINVALID() : fnYESORNO% = 1
+      If fnYESORNO% Then twm.inverse(1)
+      twm.print_at(11, y%, " Yes ")
+      twm.inverse(0)
+      If Not fnYESORNO% Then twm.inverse(1)
+      twm.print_at(18, y%, " No ")
+      twm.inverse(0)
+      update% = 0
+    EndIf
+
+    Call CTRL$, key%
+    If key% Then
+      Select Case key%
+        Case 0 ' Do nothing
+        Case ctrl.A, ctrl.START : Exit Function
+        Case ctrl.LEFT : Inc fnYESORNO% : update% = 1
+        Case ctrl.RIGHT : Inc fnYESORNO%, -1 : update% = 1
+        Case ctrl.SELECT
+          procOK()
+          procMENU()
+          key% = 0
+      End Select
+    Else
+      If ctrl.keydown%(121) Then ' Y
+        fnYESORNO% = 1
+        update% = 1
+      ElseIf ctrl.keydown%(110) Then ' N
+        fnYESORNO% = 0
+        update% = 1
+      EndIf
+    EndIf
+
+    If update% Then procOK() Else If key% Then procINVALID()
   Loop
+
+  ctrl.init_keys()
 End Function
 
-' Gets number input from user.
-Function fnNUMINP%()
-  Local x% = twm.x%, y% = twm.y%
-  fnNUMINP% = Val(fnGPI$(1, 6))
-  If fnNUMINP% = 0 Then twm.print_at(x%, y%, "0")
+' Gets positive integer input via gamepad.
+'
+' @param  x%          x-coordinate to start number entry at.
+' @param  y%          y-coordinate to start number entry at.
+' @param  initial%    initial value.
+' @param  max_value%  maximum value.
+' @param  callback$   callback when value is changed.
+Function fnNUMGAMEPAD%(x%, y%, initial%, max_value%, key%, callback$)
+  twm.print_at(x%, y%, Chr$(&h95) + "      " + Chr$(&h94))
+  Local buzz%, delta% = Choice(max_value% < 1000, 5, 25)
+  Local update% = 1, value% = initial%
+  key% = 0
+
+  Do
+    If update% Then
+      Select Case value%
+        Case < 0 : Inc buzz% : value% = 0
+        Case > max_value%
+          If value% - max_value% >= delta% Then Inc buzz%
+          value% = max_value%
+        Case Else
+          If value% Mod delta% Then value% = (value% \ delta%) * delta% + delta%
+          buzz% = 0
+      End Select
+      twm.inverse(1)
+      twm.print_at(x% + 2, y%, Format$(value%, "%4g"))
+      twm.inverse(0)
+      If Len(callback$) Then Call callback$, y%, value%
+      If buzz% >= 10 Then procINVALID() ' Don't buzz immediately the limits are hit.
+      Pause 100
+    EndIf
+
+    Call CTRL$, key%
+    Select Case key%
+      Case 0          : update% = 0
+      Case ctrl.LEFT  : Inc value%, -delta% : update% = 1
+      Case ctrl.RIGHT : Inc value%, delta% : update% = 1
+      Case Else       : Exit Do
+    End Select
+  Loop
+  twm.print_at(x%, y%, "  " + Format$(value%, "%4g") + "  ")
+
+  fnNUMGAMEPAD% = value%
+End Function
+
+' Gets positive integer input via keyboard.
+'
+' @param  x%          x-coordinate to start number entry at.
+' @param  y%          y-coordinate to start number entry at.
+' @param  max_len%    maximum number of digits.
+Function fnNUMKEYS%(x%, y%, max_len%)
+  twm.print_at(x%, y%)
+  fnNUMKEYS% = Val(fnGPI$(1, max_len%))
+  If fnNUMKEYS% = 0 Then twm.print_at(x%, y%, "0")
 End Function
 
 ' Generates a random integer between 1 and x%.
 Function fnRND%(x%)
   fnRND% = Int(Rnd() * x%) + 1
 End Function
+
+Sub procINVALID()
+  If sys.is_device%("mmb4l") Then
+    twm.bell()
+  Else
+    sound.play_fx(sound.FX_BLART%())
+  EndIf
+  Pause ctrl.UI_DELAY
+End Sub
+
+Sub procOK()
+  sound.play_fx(sound.FX_SELECT%())
+  Pause ctrl.UI_DELAY
+End Sub
+
+Sub on_break()
+  procEND(1)
+End Sub
+
+Sub procEND(break%)
+  If sys.is_device%("pglcd") Then
+    pglcd.end(break%)
+  Else
+    ' Hide cursor, clear console, return cursor to home.
+    ' Print Chr$(27) "[?25l" Chr$(27) "[2J" Chr$(27) "[H"
+    End
+  EndIf
+End Sub
+
+mo_li_hua_music_data:
+Data 696   ' Number of bytes of music data.
+Data 3     ' Number of channels.
+Data &h2C35002535002535, &h35003135002C0000, &h002C38002C380031, &h313D002A3A002A3A
+Data &h0000363D00310000, &h00313A00313A0036, &h2C38002538002538, &h38003138002C0000
+Data &h00353A00353A0031, &h3138002C38002C38, &h3800353800313800, &h0031380031380035
+Data &h2C35002535002535, &h35003135002C0000, &h002C38002C380031, &h313D002A3A002A3A
+Data &h0000363D00310000, &h00313A00313A0036, &h2C38002538002538, &h38003138002C0000
+Data &h00353A00353A0031, &h3138002C38002C38, &h3800353800313800, &h0031000031380035
+Data &h2C38002538002538, &h38003138002C0000, &h002C00002C380031, &h2C38002938002938
+Data &h35003135002C0000, &h002C38002C380031, &h313A002A3A002A3A, &h3A00363A00310000
+Data &h00310000313A0036, &h3138002938002938, &h3800353800313800, &h0031380031380035
+Data &h2C35002535002535, &h33002933002C3500, &h002C35002C350029, &h2A38002738002738
+Data &h35002E35002A3800, &h002A33002A33002E, &h2C31002531002531, &h31002931002C0000
+Data &h002C33002C330029, &h2C31002531002531, &h31002931002C3100, &h002C31002C310029
+Data &h2C33002535002535, &h31003131002C3300, &h002C35002C350031, &h2C33003033003033
+Data &h33003033002C3300, &h0033350033350030, &h2A38002238002238, &h3A00273A002A3800
+Data &h00303D00303D0027, &h2C38002538002538, &h38003138002C3800, &h002C38002C380031
+Data &h2C33002733002733, &h35003035002C3300, &h0033380033380030, &h2A35003033003033
+Data &h31002E31002A3500, &h002A2E002A2E002E, &h302C002C2C002C2C, &h2C002A2C00302C00
+Data &h00272C00272C002A, &h2C00002900002900, &h00003100002C0000, &h002C00002C000031
+Data &h2A2E00222E00222E, &h31002E31002A2E00, &h002A31002A31002E, &h3033002733002733
+Data &h3300333300303300, &h0030350030350033, &h2E33003131003131, &h31002E31002E3300
+Data &h002A2E002A2E002E, &h252C00252C00252C, &h2C00252C00252C00, &h00252C00252C0025
+Data &hFFFFFFFFFF000000, &hFFFFFFFFFFFFFFFF, &hFFFFFFFFFFFFFFFF

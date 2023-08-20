@@ -1,6 +1,0 @@
-' Picomite version of "Yellow River Kingdom"
-
-'!define NO_INCLUDE_GUARDS
-'!define CONSOLE_ONLY
-
-#Include "kingdom.bas"
