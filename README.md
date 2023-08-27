@@ -32,7 +32,7 @@ perhaps you would like to buy me a coffee?
 
 ## How do I install it ?
 
- - Download the [latest release](https://github.com/thwill1000/cmm2-kingdom/releases/latest)
+ - Download the [latest release](https://github.com/thwill1000/mmbasic-kingdom/releases/latest)
  - Extract to a directory of your choice, e.g.
      -  CMM2: `/kingdom/`
      -  Linux: `~/mmbasic/kingdom/`
