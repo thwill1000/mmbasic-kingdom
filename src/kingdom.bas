@@ -108,10 +108,19 @@ Dim was_attacked%            ' Was there an attack ? (boolean)
 Dim was_flooded%             ' Was there a flood ? (boolean)
 Dim use_keyboard% = (CTRL$ = "keys_cursor_ext") ' Use keyboard for number entry.
 
-Dim MUSIC_MO_LI_HUA%(696 \ 8)
+Dim FX_ATTACK%(sound.data_size%("attack_fx_data"))
+Dim FX_FLOOD%(sound.data_size%("flood_fx_data"))
+Dim MUSIC_AUTUMN_FESTIVAL%(sound.data_size%("autumn_festival_music_data"))
+Dim MUSIC_MO_LI_HUA%(sound.data_size%("mo_li_hua_music_data"))
+Dim music_track%
+
+sound.load_data("attack_fx_data", FX_ATTACK%())
+sound.load_data("flood_fx_data", FX_FLOOD%())
+sound.load_data("autumn_festival_music_data", MUSIC_AUTUMN_FESTIVAL%())
 sound.load_data("mo_li_hua_music_data", MUSIC_MO_LI_HUA%())
+sound.music_tick% = 150
 sound.init()
-sound.play_music(MUSIC_MO_LI_HUA%())
+music_track% = 0 : on_music_done()
 
 procTITLEPAGE()
 procINSTRUCTIONS()
@@ -146,10 +155,10 @@ Sub procTITLEPAGE()
     Call CTRL$, key%
     Select Case key%
       Case 0 ' Do nothing
-      Case ctrl.A, ctrl.START
-        ' For testing purposes even when using the keyboard pressing 'S' will
+      Case ctrl.A, ctrl.START, ctrl.SELECT
+        ' For testing purposes even when using the keyboard pressing 'E' or 'S' will
         ' cause the game to use the gamepad number entry mechanism.
-        If key% = ctrl.START Then use_keyboard% = 0
+        If (key% = ctrl.START) Or (key% = ctrl.SELECT) Then use_keyboard% = 0
         procOK()
         Exit Do
       Case Else
@@ -215,7 +224,7 @@ Sub procMENU(new_game%)
               sound.enable(sound.enabled% Xor sound.MUSIC_FLAG%)
             Else
               sound.enable(sound.enabled% Or sound.MUSIC_FLAG%)
-              sound.play_music(MUSIC_MO_LI_HUA%())
+              on_music_done() ' Start next music track.
             EndIf
             update% = 1
           Case 3
@@ -264,13 +273,14 @@ Sub procMAP()
   Next
 
   ' Print thieves.
-  Local y_top% = Choice(HEIGHT = 20, HEIGHT - 11, HEIGHT - 12)
-  For y% = y_top% To y_top% + 2 : twm.print_at(30, y%, "  ") : Next
-  twm.print_at(31, y_top%,     THIEF$ + THIEF$)
-  twm.print_at(30, y_top% + 1, "THIEVES")
-  twm.print_at(31, y_top% + 2, THIEF$)
-  twm.print_at(32, y_top% + 3, THIEF$)
+  Local y_top% = Choice(HEIGHT = 20, HEIGHT - 12, HEIGHT - 13)
+  For y% = y_top% + 1 To y_top% + 3 : twm.print_at(30, y%, "  ") : Next
+  twm.print_at(32, y_top%, THIEF$)
+  twm.print_at(31, y_top% + 1, THIEF$ + THIEF$)
+  twm.print_at(30, y_top% + 2, "THIEVES")
+  twm.print_at(31, y_top% + 3, THIEF$)
   twm.print_at(32, y_top% + 4, THIEF$)
+  twm.print_at(32, y_top% + 5, THIEF$)
 
   ' Print villages.
   For y% = 1 To 3 : procVDRAW(y%) : Next
@@ -608,6 +618,7 @@ Sub procATTACK()
 
   ' Move the thief vertically towards village.
   Do
+    If Not sound.is_playing%(sound.FX_FLAG%) Then sound.play_fx(FX_ATTACK%())
     twm.print_at(x%, y%, " ")
     If y% = wy% Then Exit Do
     Inc y%, d%
@@ -617,6 +628,7 @@ Sub procATTACK()
 
   ' Move the thief horizontally toward village.
   Do While x% > wx%
+    If Not sound.is_playing%(sound.FX_FLAG%) Then sound.play_fx(FX_ATTACK%())
     Inc x%, -1
     twm.print_at(x%, y%, THIEF$)
     Pause 1000 * (1 - Min(0.9, (x% - wx%) / 5))
@@ -627,6 +639,7 @@ Sub procATTACK()
   twm.foreground(twm.GREEN%)
   Local i%
   For i% = 1 To 40
+    If Not sound.is_playing%(sound.FX_FLAG%) Then sound.play_fx(FX_ATTACK%())
     twm.print_at(x%, y% + 1, Mid$("\|/-", 1 + i% Mod 4, 1))
     Pause 40
   Next
@@ -637,6 +650,7 @@ Sub procATTACK()
 
   ' Move the thief horizontally back to the mountains.
   Do While x% < 32
+    If Not sound.is_playing%(sound.FX_FLAG%) Then sound.play_fx(FX_ATTACK%())
     twm.print_at(x%, y%, Choice(x% = 29, Chr$(222), " "))
     Inc x%
     twm.print_at(x%, y%, THIEF$)
@@ -645,6 +659,7 @@ Sub procATTACK()
 
   ' Move the thief vertically back to the mountains.
   Do While y% <> sy%
+    If Not sound.is_playing%(sound.FX_FLAG%) Then sound.play_fx(FX_ATTACK%())
     twm.print_at(x%, y%, " ")
     Inc y%, -d%
     twm.print_at(x%, y%, THIEF$)
@@ -687,6 +702,7 @@ Sub procFLOOD()
   If fs! < 1.0 Then Exit Sub
 
   was_flooded% = 1
+  sound.play_fx(FX_FLOOD%())
 
   Local x% = 6
   Local y% = fnRND%(8) + 10
@@ -1106,6 +1122,80 @@ Sub procEND(break%)
     End
   EndIf
 End Sub
+
+Sub on_music_done()
+  If music_track% = 1 Then
+    sound.music_volume% = Choice(sys.is_device%("pglcd"), 5, 10)
+    sound.play_music(MUSIC_AUTUMN_FESTIVAL%(), "on_music_done")
+    music_track% = 2
+  Else
+    sound.music_volume% = Choice(sys.is_device%("pglcd"), 10, 15)
+    sound.play_music(MUSIC_MO_LI_HUA%(), "on_music_done")
+    music_track% = 1
+  EndIf
+End Sub
+
+attack_fx_data:
+Data 48    ' Number of bytes of music data.
+Data 3     ' Number of channels.
+Data &h0033000000000034, &h0000003200000000, &h0000310000310000, &hFFFF000000000000
+Data &hFFFFFFFFFFFFFFFF, &hFFFFFFFFFFFFFFFF
+
+flood_fx_data:
+Data 192   ' Number of bytes of music data.
+Data 3     ' Number of channels.
+Data &h0031000031000031, &h3200003200003100, &h0000320000320000, &h0033000033000033
+Data &h3400003400003300, &h0000340000340000, &h0035000035000035, &h3600003600003500
+Data &h0000360000360000, &h0037000037000037, &h3800003800003700, &h0000380000380000
+Data &h0039000039000039, &h3A00003A00003900, &h00003A00003A0000, &h003B00003B00003B
+Data &h3C00003C00003B00, &h00003C00003C0000, &h003D00003D00003D, &h3D00003D00003D00
+Data &h00003D00003D0000, &hFFFFFFFFFF000000, &hFFFFFFFFFFFFFFFF, &hFFFFFFFFFFFFFFFF
+
+autumn_festival_music_data:
+Data 1320  ' Number of bytes of music data.
+Data 3     ' Number of channels.
+Data &h003C2B003E2B003E, &h3A2B373A2B003C2B, &h2B373A2B373A2B37, &h00412B00002B0000
+Data &h3F2C003F2B00412B, &h2C003E2C003E2C00, &h383C2C383C2C383C, &h002C00002C383C2C
+Data &h2C00002C00002C00, &h00382E003A2E003A, &h372E00372E00382E, &h2E00372E00372E00
+Data &h00352E00002E0000, &h373000372E00352E, &h3000383000383000, &h0037300037300037
+Data &h3A30003A30003730, &h30003A30003A3000, &h003C2B003E2B003E, &h3A2B373A2B003C2B
+Data &h2B373A2B373A2B37, &h00412B00002B0000, &h3F2C003F2B00412B, &h2C003E2C003E2C00
+Data &h383C2C383C2C383C, &h002C00002C383C2C, &h2C00002C00002C00, &h003F2E003E2E003E
+Data &h412E3A412E003F2E, &h2E3A412E3A412E3A, &h00432E00432E0043, &h3F30003F2E00432E
+Data &h30003E30003E3000, &h003C30003C30003C, &h0030000030003C30, &h3000003000003000
+Data &h003C2B003E2B003E, &h3A2B373A2B003C2B, &h2B373A2B373A2B37, &h00412B00002B0000
+Data &h3F2C003F2B00412B, &h2C003E2C003E2C00, &h383C2C383C2C383C, &h002C00002C383C2C
+Data &h2C00002C00002C00, &h00382E003A2E003A, &h372E00372E00382E, &h2E00372E00372E00
+Data &h00352E00002E0000, &h373000372E00352E, &h3000383000383000, &h0037300037300037
+Data &h3A30003A30003730, &h30003A30003A3000, &h003C2B003E2B003E, &h3A2B373A2B003C2B
+Data &h2B373A2B373A2B37, &h00412B00002B0000, &h3F2C003F2B00412B, &h2C003E2C003E2C00
+Data &h383C2C383C2C383C, &h002C00002C383C2C, &h2C00002C00002C00, &h003F2E003E2E003E
+Data &h412E3A412E003F2E, &h2E3A412E3A412E3A, &h00432E00432E0043, &h3F30003F2E00432E
+Data &h30003E30003E3000, &h003C30003C30003C, &h0030000030003C30, &h3000003000003000
+Data &h003C2B003E2B003E, &h3A37003A2B003C2B, &h00003C37003C3700, &h003A37003E37003E
+Data &h412C004137003A37, &h2C003F2C003F2C00, &h003F38003E38003E, &h4138004100003F38
+Data &h3800413800413800, &h00412E00432E0043, &h3F3A003F2E00412E, &h0000433A00433A00
+Data &h00443A00463A0046, &h433000433A00443A, &h3000413000413000, &h00413C003F3C003F
+Data &h3E3C003E3C00413C, &h3C00003C003E3C00, &h003C2B003E2B003E, &h3A37003A2B003C2B
+Data &h00003C37003C3700, &h003A37003E37003E, &h412C004137003A37, &h2C003F2C003F2C00
+Data &h003F38003E38003E, &h4138004100003F38, &h3800413800413800, &h00412E00432E0043
+Data &h3F3A003F2E00412E, &h0000433A00433A00, &h00443A00463A0046, &h433000433A00443A
+Data &h3000413000413000, &h00413C003F3C003F, &h3E3C003E3C00413C, &h3C003F3C003F3C00
+Data &h3D00310041313D41, &h00384100313D0031, &h3844003844003841, &h44003D48003D4800
+Data &h41313D413D44003D, &h313D00313D003100, &h4400384100384100, &h003D480038440038
+Data &h3D44003D44003D48, &h3D002E41002E4100, &h003541002E3D002E, &h3544003544003541
+Data &h44003A48003A4800, &h002E41003A44003A, &h2E3D002E3D002E41, &h4400354100354100
+Data &h003A480035440035, &h3A44003A44003A48, &h3D002F3F002F3F00, &h003B3F002F3D002F
+Data &h0044003B44003B3F, &h3D003B3F003B3F00, &h002F3F003B3D003B, &h2F3D002F3D002F3F
+Data &h44003B3F003B3F00, &h003B3F000044003B, &h3B3D003B3D003B3F, &h3D00213F00213F00
+Data &h2D283F2D213D0021, &h00440028442D283F, &h3D2D283F2D283F2D, &h00213F00283D2D28
+Data &h213D00213D00213F, &h442D283F2D283F2D, &h2D283F2D00440028, &h283D2D283D2D283F
+Data &h3D27203F27203F27, &h27203F27203D2720, &h204427204427203F, &h3D27203F27203F27
+Data &h27203F27203D2720, &h203D27203D27203F, &h4427203F27203F27, &h27203F2720442720
+Data &h203D27203D27203F, &h2400200000200000, &h0020270020240020, &h202C00202C002027
+Data &h3300203000203000, &h0020380020330020, &h203A00203A002038, &h3F00203C00203C00
+Data &h00204400203F0020, &h2046002046002044, &h4800204800204800, &h0020000020480020
+Data &hFFFFFF0000002000
 
 mo_li_hua_music_data:
 Data 696   ' Number of bytes of music data.
