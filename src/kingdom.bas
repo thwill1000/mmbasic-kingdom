@@ -39,7 +39,7 @@ If sys.is_device%("mmb4l") Then
   Const THIEF$ = "T"
   Randomize Timer
 ElseIf sys.is_device%("pglcd") Then
-  Const CTRL$ = "ctrl.pglcd2"
+  Const CTRL$ = "ctrl.gamemite"
   Const THIEF$ = Chr$(&h98)
   Randomize Timer
 ElseIf sys.is_device%("cmm2*", "mmb4w") Then
