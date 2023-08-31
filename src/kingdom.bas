@@ -38,7 +38,7 @@ If sys.is_device%("mmb4l") Then
   Const CTRL$ = "keys_cursor_ext"
   Const THIEF$ = "T"
   Randomize Timer
-ElseIf sys.is_device%("pglcd") Then
+ElseIf sys.is_device%("gamemite") Then
   Const CTRL$ = "ctrl.gamemite"
   Const THIEF$ = Chr$(&h98)
   Randomize Timer
@@ -67,7 +67,7 @@ Cls
 
 twm.init(3, 4328)
 
-If sys.is_device%("pglcd", "mmb4l") Then
+If sys.is_device%("gamemite", "mmb4l") Then
   Const HEIGHT = 20
   Const WIDTH = 40
   Const win1% = twm.new_win%(0, 0, WIDTH, HEIGHT)
@@ -1114,7 +1114,7 @@ Sub on_break()
 End Sub
 
 Sub procEND(break%)
-  If sys.is_device%("pglcd") Then
+  If sys.is_device%("gamemite") Then
     gamemite.end(break%)
   Else
     ' Hide cursor, clear console, return cursor to home.
@@ -1125,11 +1125,11 @@ End Sub
 
 Sub on_music_done()
   If music_track% = 1 Then
-    sound.music_volume% = Choice(sys.is_device%("pglcd"), 5, 10)
+    sound.music_volume% = Choice(sys.is_device%("gamemite"), 5, 10)
     sound.play_music(MUSIC_AUTUMN_FESTIVAL%(), "on_music_done")
     music_track% = 2
   Else
-    sound.music_volume% = Choice(sys.is_device%("pglcd"), 10, 15)
+    sound.music_volume% = Choice(sys.is_device%("gamemite"), 10, 15)
     sound.play_music(MUSIC_MO_LI_HUA%(), "on_music_done")
     music_track% = 1
   EndIf
