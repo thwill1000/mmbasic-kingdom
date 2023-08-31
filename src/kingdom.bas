@@ -28,7 +28,7 @@ Const VERSION = 10100 ' 1.1.0
 #Include "splib/ctrl.inc"
 #Include "splib/sound.inc"
 '!if defined(PGLCD) || defined(PGLCD2)
-#Include "splib/pglcd.inc"
+#Include "splib/gamemite.inc"
 '!endif
 
 sys.override_break("on_break")
@@ -1115,7 +1115,7 @@ End Sub
 
 Sub procEND(break%)
   If sys.is_device%("pglcd") Then
-    pglcd.end(break%)
+    gamemite.end(break%)
   Else
     ' Hide cursor, clear console, return cursor to home.
     ' Print Chr$(27) "[?25l" Chr$(27) "[2J" Chr$(27) "[H"
