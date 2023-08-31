@@ -27,7 +27,7 @@ Const VERSION = 10100 ' 1.1.0
 #Include "splib/txtwm.inc"
 #Include "splib/ctrl.inc"
 #Include "splib/sound.inc"
-'!if defined(PGLCD) || defined(PGLCD2)
+'!if defined(GAMEMITE)
 #Include "splib/gamemite.inc"
 '!endif
 
