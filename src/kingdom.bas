@@ -155,10 +155,10 @@ Sub procTITLEPAGE()
     Call CTRL$, key%
     Select Case key%
       Case 0 ' Do nothing
-      Case ctrl.A, ctrl.START, ctrl.SELECT
-        ' For testing purposes even when using the keyboard pressing 'E' or 'S' will
+      Case ctrl.A, ctrl.START
+        ' For testing purposes even when using the keyboard pressing 'S' will
         ' cause the game to use the gamepad number entry mechanism.
-        If (key% = ctrl.START) Or (key% = ctrl.SELECT) Then use_keyboard% = 0
+        If key% = ctrl.START Then use_keyboard% = 0
         procOK()
         Exit Do
       Case Else
@@ -206,7 +206,10 @@ Sub procMENU(new_game%)
 
     Call CTRL$, key%
     Select Case key%
-      Case ctrl.A, ctrl.START
+      Case ctrl.START
+        procOK()
+        Exit Do
+      Case ctrl.A, ctrl.SELECT
         Select Case sel%
           Case 0 : procOK() : Exit Do
           Case 1 : procOK() : procEND()
@@ -350,10 +353,10 @@ Sub procSPACE()
     Call CTRL$, key%
     Select Case key%
       Case 0 ' Do nothing
-      Case ctrl.START, ctrl.A
+      Case ctrl.A
         procOK()
         Exit Do
-      Case ctrl.SELECT
+      Case ctrl.START
         procOK()
         procMENU()
       Case Else
@@ -509,7 +512,7 @@ Sub procBEGINSEASON()
           If i% = 0 Then procINVALID() Else Inc i%, -1
         Case ctrl.DOWN
           If i% = 2 Then procINVALID() Else Inc i%
-        Case ctrl.SELECT
+        Case ctrl.START
           procOK()
           procMENU()
         Case Else
@@ -527,7 +530,7 @@ Sub procBEGINSEASON()
       planted! = Min(food% \ 3, 500)
       Do
         planted! = fnNUMGAMEPAD%(26, 14, planted!, food%, key%)
-        If key% = ctrl.A And planted! > 0 Then
+        If (key% = ctrl.A) And (planted! > 0) Then
           procOK()
           Exit Do
         Else
@@ -556,8 +559,8 @@ Sub people_change_cb(y%, value%)
   Local msg$
   Select Case remaining%
     Case 0 : msg$ = CONTINUE_MSG$
-    Case 1 : msg$ = "1 unallocated villager"
-    Case Else : msg$ = Str$(remaining%) + " unallocated villagers"
+    Case 1 : msg$ = "1 idle villager"
+    Case Else : msg$ = Str$(remaining%) + " idle villagers"
   End Select
 
   twm.print_at(0, Choice(HEIGHT = 20, 18, 21), str.centre$(msg$, twm.w% - 2))
@@ -919,16 +922,17 @@ Sub procYELLOW()
   twm.foreground(twm.YELLOW%)
 End Sub
 
-' Waits approximately 'duration%' milliseconds for START/SPACE/A
+' Waits approximately 'duration%' milliseconds for SPACE/A
 '
 ' @param  duration%   milliseconds to wait.
-' @return             ctrl code of key pressed, or 0 if none was pressed.
+' @return             1 if key/button pressed, otherwise 0.
 Function fnWAITFORKEY%(duration%)
-  Local expires% = Timer + duration%
+  Local expires% = Timer + duration%, key%
   Do While Timer < expires%
-    Call CTRL$, fnWAITFORKEY%
-    If fnWAITFORKEY% = ctrl.A Or fnWAITFORKEY% = ctrl.START Then Exit Do
+    Call CTRL$, key%
+    If key% = ctrl.A Then Exit Do
   Loop
+  fnWAITFORKEY% = (key% = ctrl.A)
 End Function
 
 ' Clears the input buffer.
@@ -1010,10 +1014,10 @@ Function fnYESORNO%(y%)
     If key% Then
       Select Case key%
         Case 0 ' Do nothing
-        Case ctrl.A, ctrl.START : Exit Function
+        Case ctrl.A, ctrl.SELECT : Exit Function
         Case ctrl.LEFT : Inc fnYESORNO% : update% = 1
         Case ctrl.RIGHT : Inc fnYESORNO%, -1 : update% = 1
-        Case ctrl.SELECT
+        Case ctrl.START
           procOK()
           procMENU()
           key% = 0
@@ -1050,14 +1054,16 @@ Function fnNUMGAMEPAD%(x%, y%, initial%, max_value%, key%, callback$)
   Do
     If update% Then
       Select Case value%
-        Case < 0 : Inc buzz% : value% = 0
+        Case < 0
+          Inc buzz%
+          value% = 0
         Case > max_value%
           If value% - max_value% >= delta% Then Inc buzz%
-          value% = max_value%
         Case Else
           If value% Mod delta% Then value% = (value% \ delta%) * delta% + delta%
           buzz% = 0
       End Select
+      value% = Min(value%, max_value%)
       twm.inverse(1)
       twm.print_at(x% + 2, y%, Format$(value%, "%4g"))
       twm.inverse(0)
