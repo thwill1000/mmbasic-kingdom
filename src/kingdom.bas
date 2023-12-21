@@ -7,18 +7,18 @@ Option Base 0
 Option Default None
 Option Explicit
 
-Const VERSION = 10100 ' 1.1.0
+Const VERSION = 101301 ' 1.1.1
 
 '!define NO_INCLUDE_GUARDS
 
 #Include "splib/system.inc"
 
-'!if defined PICOMITEVGA
+'!if defined(PICOMITEVGA)
   '!replace { Page Copy 1 To 0 , B } { FrameBuffer Copy F , N , B }
   '!replace { Page Write 1 } { FrameBuffer Write F }
   '!replace { Page Write 0 } { FrameBuffer Write N }
   '!replace { Mode 7 } { Mode 2 : FrameBuffer Create }
-'!elif defined PICOMITE
+'!elif defined(PICOMITE) || defined(GAMEMITE)
   '!replace { Page Copy 1 To 0 , B } { FrameBuffer Copy F , N }
   '!replace { Page Write 1 } { FrameBuffer Write F }
   '!replace { Page Write 0 } { FrameBuffer Write N }
@@ -29,22 +29,35 @@ Const VERSION = 10100 ' 1.1.0
 #Include "splib/txtwm.inc"
 #Include "splib/ctrl.inc"
 #Include "splib/sound.inc"
+
 '!if defined(GAMEMITE)
-#Include "splib/gamemite.inc"
+  #Include "splib/gamemite.inc"
+  '!dynamic_call ctrl.gamemite
+  '!dynamic_call keys_cursor_ext  
+'!else
+  '!dynamic_call keys_cursor_ext  
 '!endif
 
-sys.override_break("on_break")
+sys.override_break("break_cb")
 
-If sys.is_device%("mmb4l") Then
+'!if defined(GAMEMITE)
+  '!uncomment_if true
+  ' Const CTRL$ = "ctrl.gamemite"
+  ' Const THIEF$ = Chr$(&h98)
+  ' Const VERSION_STRING$ = "Game*Mite Version " + sys.format_version$(VERSION)
+  ' Randomize Timer
+  '!endif
+'!else
+If sys.is_platform%("mmb4l") Then
   Option CodePage CMM2
   Const CTRL$ = "keys_cursor_ext"
   Const THIEF$ = "T"
   Randomize Timer
-ElseIf sys.is_device%("gamemite") Then
+ElseIf sys.is_platform%("gamemite") Then
   Const CTRL$ = "ctrl.gamemite"
   Const THIEF$ = Chr$(&h98)
   Randomize Timer
-ElseIf sys.is_device%("cmm2*", "mmb4w") Then
+ElseIf sys.is_platform%("cmm2*", "mmb4w") Then
   Option Console Serial
   Const CTRL$ = "keys_cursor_ext"
   Const THIEF$ = Chr$(&h98)
@@ -53,6 +66,8 @@ ElseIf sys.is_device%("cmm2*", "mmb4w") Then
 Else
   Error "Unsupported device: " + Mm.Device$
 EndIf
+Const VERSION_STRING$ = "Version " + sys.format_version$(VERSION)
+'!endif
 
 If CTRL$ = "keys_cursor_ext" Then
   Const START_MSG$ = "Press the SPACE BAR to play"
@@ -69,12 +84,15 @@ Cls
 
 twm.init(3, 4328)
 
-If sys.is_device%("gamemite", "mmb4l") Then
+'!if !defined(GAMEMITE)
+If sys.is_platform%("gamemite", "mmb4l") Then
+'!endif
   Const HEIGHT = 20
   Const WIDTH = 40
   Const win1% = twm.new_win%(0, 0, WIDTH, HEIGHT)
   Const win2% = twm.new_win%(3, 0, WIDTH - 4, HEIGHT)
   Const win_menu% = twm.new_win%(7, 4, 26, 11)
+'!if !defined(GAMEMITE)
 Else
   Const HEIGHT = 25
   Const WIDTH = 40
@@ -82,6 +100,7 @@ Else
   Const win2% = twm.new_win%(14, 0, WIDTH - 4, HEIGHT - 1)
   Const win_menu% = twm.new_win%(17, 8, 26, 11)
 EndIf
+'!endif
 
 Dim season_name$(3) = ("", "Winter", "Growing", "Harvest")
 Dim vx%(3) = (0, 13, 21, 22) ' Village x-coordinates
@@ -122,7 +141,8 @@ sound.load_data("autumn_festival_music_data", MUSIC_AUTUMN_FESTIVAL%())
 sound.load_data("mo_li_hua_music_data", MUSIC_MO_LI_HUA%())
 sound.music_tick% = 150
 sound.init()
-music_track% = 0 : on_music_done()
+music_track% = 0
+music_done_cb()
 
 procTITLEPAGE()
 procINSTRUCTIONS()
@@ -146,7 +166,7 @@ Sub procTITLEPAGE()
   twm.print_at(0, y% + 1, str.centre$("YELLOW RIVER", twm.w%))
   twm.print_at(0, y% + 2, str.centre$(" KINGDOM", twm.w%))
   twm.bold(0)
-  twm.print_at(0, y% + 3, str.centre$(sys.format_version$(VERSION), twm.w%))
+  twm.print_at(0, y% + 3, str.centre$(VERSION_STRING$, twm.w%))
   twm.print_at(0, y% + 4, Space$(twm.w%))
   If HEIGHT <> 20 Then twm.print_at(0, twm.h% - 2, Space$(twm.w%))
   twm.print_at(0, twm.h% - 1, str.centre$(START_MSG$, twm.w%))
@@ -229,7 +249,7 @@ Sub procMENU(new_game%)
               sound.enable(sound.enabled% Xor sound.MUSIC_FLAG%)
             Else
               sound.enable(sound.enabled% Or sound.MUSIC_FLAG%)
-              on_music_done() ' Start next music track.
+              music_done_cb() ' Start next music track.
             EndIf
             update% = 1
           Case 3
@@ -546,6 +566,7 @@ Sub procBEGINSEASON()
 
 End Sub
 
+'!dynamic_call people_change_cb
 Sub people_change_cb(y%, value%)
   Local remaining%
   Select Case y%
@@ -1104,11 +1125,13 @@ Function fnRND%(x%)
 End Function
 
 Sub procINVALID()
-  If sys.is_device%("mmb4l") Then
-    twm.bell()
-  Else
-    sound.play_fx(sound.FX_BLART%())
-  EndIf
+'!if defined(GAMEMITE)
+  '!uncomment_if true
+  ' sound.play_fx(sound.FX_BLART%())
+  '!endif
+'!else
+  If sys.is_platform%("mmb4l") Then twm.bell() Else sound.play_fx(sound.FX_BLART%())
+'!endif
   Pause ctrl.UI_DELAY
 End Sub
 
@@ -1117,28 +1140,43 @@ Sub procOK()
   Pause ctrl.UI_DELAY
 End Sub
 
-Sub on_break()
+'!dynamic_call break_cb
+Sub break_cb()
   procEND(1)
 End Sub
 
 Sub procEND(break%)
-  If sys.is_device%("gamemite") Then
+'!if defined(GAMEMITE)
+  '!uncomment_if true
+  ' gamemite.end(break%)
+  '!endif
+'!else
+  If sys.is_platform%("gamemite") Then
     gamemite.end(break%)
   Else
     ' Hide cursor, clear console, return cursor to home.
     ' Print Chr$(27) "[?25l" Chr$(27) "[2J" Chr$(27) "[H"
     End
   EndIf
+'!endif
 End Sub
 
-Sub on_music_done()
+'!dynamic_call music_done_cb
+Sub music_done_cb()
+'!if defined(GAMEMITE)
+  '!uncomment_if true
+  ' Const is_gamemite% = 1
+  '!endif
+'!else
+  Const is_gamemite% = sys.is_platform%("gamemite")
+'!endif
   If music_track% = 1 Then
-    sound.music_volume% = Choice(sys.is_device%("gamemite"), 5, 10)
-    sound.play_music(MUSIC_AUTUMN_FESTIVAL%(), "on_music_done")
+    sound.music_volume% = Choice(is_gamemite%, 5, 10)
+    sound.play_music(MUSIC_AUTUMN_FESTIVAL%(), "music_done_cb")
     music_track% = 2
   Else
-    sound.music_volume% = Choice(sys.is_device%("gamemite"), 10, 15)
-    sound.play_music(MUSIC_MO_LI_HUA%(), "on_music_done")
+    sound.music_volume% = Choice(is_gamemite%, 10, 15)
+    sound.play_music(MUSIC_MO_LI_HUA%(), "music_done_cb")
     music_track% = 1
   EndIf
 End Sub

@@ -1,10 +1,13 @@
 ChangeLog
 ---------
 
+Version 1.1.1 - 21-Dec-2023:
+  - Maintenance release to bring source inline with latest version of splib.
+
 Version 1.1.0 - 16-Sep-2023:
   - Many UI changes.
   - Support for gamepads/joysticks.
-  - Support for transpiling to the GameMite.
+  - Support for transpiling to the Game*Mite.
 
 Version 1.0.4 - 13-Nov-2021:
   - Fixed bug where game crashed when asking the "ritual question";
