@@ -1,91 +1,78 @@
 ' Yellow River Kingdom (aka Hamurabi).
 ' BBC Micro - Version 5 - October 1981.
 ' By Tom Hartley, Jerry Temple-Fry (NETHERHALL SCHOOL) and Richard G Warner.
-' MMBasic 5.07 port by Thomas Hugo Williams, 2021-2023.
+' MMBasic 6.0 port by Thomas Hugo Williams, 2021-2024.
 
 Option Base 0
 Option Default None
 Option Explicit
 
-Const VERSION = 101301 ' 1.1.1
-
-'!define NO_INCLUDE_GUARDS
-
-#Include "splib/system.inc"
+Const VERSION = 101302 ' 1.1.2
 
 '!if defined(PICOMITEVGA)
-  '!replace { Page Copy 1 To 0 , B } { FrameBuffer Copy F , N , B }
-  '!replace { Page Write 1 } { FrameBuffer Write F }
-  '!replace { Page Write 0 } { FrameBuffer Write N }
-  '!replace { Mode 7 } { Mode 2 : FrameBuffer Create }
-'!elif defined(PICOMITE) || defined(GAMEMITE)
-  '!replace { Page Copy 1 To 0 , B } { FrameBuffer Copy F , N }
-  '!replace { Page Write 1 } { FrameBuffer Write F }
-  '!replace { Page Write 0 } { FrameBuffer Write N }
-  '!replace { Mode 7 } { FrameBuffer Create }
+  '!replace { Option Simulate "Colour Maximite 2" } { Option Simulate "PicoMiteVGA" }
+  '!dynamic_call nes_a
+'!elif defined(GAMEMITE)
+  '!replace { Option Simulate "Colour Maximite 2" } { Option Simulate "Game*Mite" }
+  '!dynamic_call ctrl.gamemite
+  '!replace { "Version " } { "Game*Mite Version " }
+  '!replace { "Press START or SPACE to play" } { "Press START to play" }
+'else
+  '!dynamic_call wii_classic_3
 '!endif
 
+If Mm.Device$ = "MMB4L" Then
+  Option Simulate "Colour Maximite 2"
+  Option CodePage CMM2
+EndIf
+
+#Include "splib/system.inc"
 #Include "splib/string.inc"
 #Include "splib/txtwm.inc"
 #Include "splib/ctrl.inc"
 #Include "splib/sound.inc"
+#Include "splib/game.inc"
 
-'!if defined(GAMEMITE)
-  #Include "splib/gamemite.inc"
-  '!dynamic_call ctrl.gamemite
-  '!dynamic_call keys_cursor_ext  
-'!else
-  '!dynamic_call keys_cursor_ext  
+'!dynamic_call on_break
+sys.override_break("on_break")
+
+Const THIEF$ = Chr$(&h98)
+Const VERSION_STRING$ = "Version " + sys.format_version$(VERSION)
+
+Dim ctrl$ = ctrl.default_driver$()
+ctrl.init_keys()
+If ctrl.open_no_error%(ctrl$) <> sys.SUCCESS Then ctrl$ = "keys_cursor_ext"
+
+'!if !defined(GAMEMITE)
+If sys.PLATFORM$() = "Game*Mite" Then
 '!endif
-
-sys.override_break("break_cb")
-
-'!if defined(GAMEMITE)
-  '!uncomment_if true
-  ' Const CTRL$ = "ctrl.gamemite"
-  ' Const THIEF$ = Chr$(&h98)
-  ' Const VERSION_STRING$ = "Game*Mite Version " + sys.format_version$(VERSION)
-  ' Randomize Timer
-  '!endif
-'!else
-If sys.is_platform%("mmb4l") Then
-  Option CodePage CMM2
-  Const CTRL$ = "keys_cursor_ext"
-  Const THIEF$ = "T"
   Randomize Timer
-ElseIf sys.is_platform%("gamemite") Then
-  Const CTRL$ = "ctrl.gamemite"
-  Const THIEF$ = Chr$(&h98)
-  Randomize Timer
-ElseIf sys.is_platform%("cmm2*", "mmb4w") Then
+'!if !defined(GAMEMITE)
+ElseIf InStr(Mm.Device$, "Colour Maximite 2") Then
   Option Console Serial
-  Const CTRL$ = "keys_cursor_ext"
-  Const THIEF$ = Chr$(&h98)
   Mode 2
   Font 4
+ElseIf InStr(Mm.Device$, "MMBasic for Windows") Then
+  Option Console Serial
+  Mode 2
+  Font 4
+ElseIf InStr(Mm.Device$, "PicoMiteVGA") Then
+  Mode 2
+  Font 1
+  Randomize Timer
 Else
   Error "Unsupported device: " + Mm.Device$
 EndIf
-Const VERSION_STRING$ = "Version " + sys.format_version$(VERSION)
 '!endif
 
-If CTRL$ = "keys_cursor_ext" Then
-  Const START_MSG$ = "Press the SPACE BAR to play"
-  Const CONTINUE_MSG$ = "Press the SPACE BAR to continue"
-Else
-  Const START_MSG$ = "Press START to play"
-  Const CONTINUE_MSG$ = "Press A to continue"
-EndIf
-
-ctrl.init_keys()
-Call CTRL$, ctrl.OPEN
+game.init_window("Yellow River Kingdom", VERSION)
 
 Cls
 
 twm.init(3, 4328)
 
 '!if !defined(GAMEMITE)
-If sys.is_platform%("gamemite", "mmb4l") Then
+If Mm.HRes = 320 Then
 '!endif
   Const HEIGHT = 20
   Const WIDTH = 40
@@ -127,7 +114,6 @@ Dim starvation_deaths%       ' Number of deaths caused by starvation.
 Dim num_flooded%             ' Number of flooded villages.
 Dim was_attacked%            ' Was there an attack ? (boolean)
 Dim was_flooded%             ' Was there a flood ? (boolean)
-Dim use_keyboard% = (CTRL$ = "keys_cursor_ext") ' Use keyboard for number entry.
 
 Dim FX_ATTACK%(sound.data_size%("attack_fx_data"))
 Dim FX_FLOOD%(sound.data_size%("flood_fx_data"))
@@ -169,18 +155,20 @@ Sub procTITLEPAGE()
   twm.print_at(0, y% + 3, str.centre$(VERSION_STRING$, twm.w%))
   twm.print_at(0, y% + 4, Space$(twm.w%))
   If HEIGHT <> 20 Then twm.print_at(0, twm.h% - 2, Space$(twm.w%))
-  twm.print_at(0, twm.h% - 1, str.centre$(START_MSG$, twm.w%))
+  twm.print_at(0, twm.h% - 1, str.centre$(start_msg$(), twm.w%))
 
   procKCL()
   Local key%
   Do
-    Call CTRL$, key%
+    Call ctrl$, key%
+    If Not key% Then
+      keys_cursor_ext(key%)
+      ' If keyboard is used to start game then switch to keyboard mode.
+      If key% Then ctrl$ = "keys_cursor_ext"
+    EndIf
     Select Case key%
       Case 0 ' Do nothing
-      Case ctrl.A, ctrl.START
-        ' For testing purposes even when using the keyboard pressing 'S' will
-        ' cause the game to use the gamepad number entry mechanism.
-        If key% = ctrl.START Then use_keyboard% = 0
+      Case ctrl.A, ctrl.HOME, ctrl.SELECT, ctrl.START
         procOK()
         Exit Do
       Case Else
@@ -192,6 +180,10 @@ Sub procTITLEPAGE()
 
   procMENU(1)
 End Sub
+
+Function start_msg$()
+  start_msg$ = "Press " + Choice(ctrl$ = "keys_cursor_ext", "SPACE", "START or SPACE") + " to play"
+End Function
 
 Sub procMENU(new_game%)
   Const old_win% = twm.id%
@@ -226,7 +218,7 @@ Sub procMENU(new_game%)
       update% = 0
     EndIf
 
-    Call CTRL$, key%
+    Call ctrl$, key%
     Select Case key%
       Case ctrl.START
         procOK()
@@ -368,17 +360,17 @@ End Sub
 
 Sub procSPACE()
   Const y% = Choice(HEIGHT = 20, 19, 22)
-  twm.print_at(0, y%, str.centre$(CONTINUE_MSG$, twm.w% - 2))
+  twm.print_at(0, y%, str.centre$(continue_msg$(), twm.w% - 2))
   procKCL()
   Local key%
   Do
-    Call CTRL$, key%
+    Call ctrl$, key%
     Select Case key%
       Case 0 ' Do nothing
-      Case ctrl.A
+      Case ctrl.A, ctrl.SELECT
         procOK()
         Exit Do
-      Case ctrl.START
+      Case ctrl.HOME, ctrl.START
         procOK()
         procMENU()
       Case Else
@@ -388,6 +380,10 @@ Sub procSPACE()
   procKCL()
   twm.print_at(0, y%, Space$(twm.w% - 2))
 End Sub
+
+Function continue_msg$()
+  continue_msg$ = "Press " + Choice(ctrl$ = "keys_cursor_ext", "SPACE", "A") + " to continue"
+End Function
 
 Sub procREINIT()
   food% = 5000 + fnRND%(2000)
@@ -471,7 +467,7 @@ Sub procBEGINSEASON()
   twm.print_at(0, 15, " B) Work in the fields...")
   twm.print_at(0, 16, " C) Protect the villages.")
 
-  If use_keyboard% Then
+  If ctrl$ = "keys_cursor_ext" Then
     ' Prompt for number of people to defend the dyke.
     Do
       workers% = fnNUMKEYS%(26, 14, 6)
@@ -523,7 +519,7 @@ Sub procBEGINSEASON()
       End Select
 
       Select Case key%
-        Case ctrl.A
+        Case ctrl.A, ctrl.SELECT
           If workers% + farmers% + soldiers% = people% Then
             procOK()
             Exit Do
@@ -534,7 +530,7 @@ Sub procBEGINSEASON()
           If i% = 0 Then procINVALID() Else Inc i%, -1
         Case ctrl.DOWN
           If i% = 2 Then procINVALID() Else Inc i%
-        Case ctrl.START
+        Case ctrl.HOME, ctrl.START
           procOK()
           procMENU()
         Case Else
@@ -581,7 +577,7 @@ Sub people_change_cb(y%, value%)
   End Select
   Local msg$
   Select Case remaining%
-    Case 0 : msg$ = CONTINUE_MSG$
+    Case 0 : msg$ = continue_msg$()
     Case 1 : msg$ = "1 idle villager"
     Case Else : msg$ = Str$(remaining%) + " idle villagers"
   End Select
@@ -952,8 +948,8 @@ End Sub
 Function fnWAITFORKEY%(duration%)
   Local expires% = Timer + duration%, key%
   Do While Timer < expires%
-    Call CTRL$, key%
-    If key% = ctrl.A Then Exit Do
+    Call ctrl$, key%
+    If key% = ctrl.A Or key% = ctrl.SELECT Then Exit Do
   Loop
   fnWAITFORKEY% = (key% = ctrl.A)
 End Function
@@ -1033,14 +1029,14 @@ Function fnYESORNO%(y%)
       update% = 0
     EndIf
 
-    Call CTRL$, key%
+    Call ctrl$, key%
     If key% Then
       Select Case key%
         Case 0 ' Do nothing
         Case ctrl.A, ctrl.SELECT : Exit Function
         Case ctrl.LEFT : Inc fnYESORNO% : update% = 1
         Case ctrl.RIGHT : Inc fnYESORNO%, -1 : update% = 1
-        Case ctrl.START
+        Case ctrl.HOME, ctrl.START
           procOK()
           procMENU()
           key% = 0
@@ -1095,7 +1091,7 @@ Function fnNUMGAMEPAD%(x%, y%, initial%, max_value%, key%, callback$)
       Pause 100
     EndIf
 
-    Call CTRL$, key%
+    Call ctrl$, key%
     Select Case key%
       Case 0          : update% = 0
       Case ctrl.LEFT  : Inc value%, -delta% : update% = 1
@@ -1130,7 +1126,7 @@ Sub procINVALID()
   ' sound.play_fx(sound.FX_BLART%())
   '!endif
 '!else
-  If sys.is_platform%("mmb4l") Then twm.bell() Else sound.play_fx(sound.FX_BLART%())
+  If Mm.Device$ = "MMB4L" Then twm.bell() Else sound.play_fx(sound.FX_BLART%())
 '!endif
   Pause ctrl.UI_DELAY
 End Sub
@@ -1140,25 +1136,15 @@ Sub procOK()
   Pause ctrl.UI_DELAY
 End Sub
 
-'!dynamic_call break_cb
-Sub break_cb()
+Sub on_break()
   procEND(1)
 End Sub
 
 Sub procEND(break%)
-'!if defined(GAMEMITE)
-  '!uncomment_if true
-  ' gamemite.end(break%)
-  '!endif
-'!else
-  If sys.is_platform%("gamemite") Then
-    gamemite.end(break%)
-  Else
-    ' Hide cursor, clear console, return cursor to home.
-    ' Print Chr$(27) "[?25l" Chr$(27) "[2J" Chr$(27) "[H"
-    End
-  EndIf
-'!endif
+  game.end(break%)
+
+  ' Hide cursor, clear console, return cursor to home.
+  ' Print Chr$(27) "[?25l" Chr$(27) "[2J" Chr$(27) "[H"
 End Sub
 
 '!dynamic_call music_done_cb
@@ -1168,7 +1154,7 @@ Sub music_done_cb()
   ' Const is_gamemite% = 1
   '!endif
 '!else
-  Const is_gamemite% = sys.is_platform%("gamemite")
+  Const is_gamemite% = sys.PLATFORM$() = "Game*Mite"
 '!endif
   If music_track% = 1 Then
     sound.music_volume% = Choice(is_gamemite%, 5, 10)

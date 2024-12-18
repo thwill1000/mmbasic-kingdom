@@ -1,6 +1,12 @@
 ChangeLog
 ---------
 
+Version 1.1.2 - 18-Dec-2024:
+  - Support graphical mode on MMB4L v0.7.
+  - Support PicoGAME VGA with NES controller.
+  - Changed so SELECT button has same behaviour as A button.
+  - Changed so HOME button has same behaviour as START button.
+
 Version 1.1.1 - 21-Dec-2023:
   - Maintenance release to bring source inline with latest version of splib.
 
