@@ -1,13 +1,13 @@
 ' Yellow River Kingdom (aka Hamurabi).
 ' BBC Micro - Version 5 - October 1981.
 ' By Tom Hartley, Jerry Temple-Fry (NETHERHALL SCHOOL) and Richard G Warner.
-' MMBasic 6.0 port by Thomas Hugo Williams, 2021-2024.
+' MMBasic 6.0 port by Thomas Hugo Williams, 2021-2026.
 
 Option Base 0
 Option Default None
 Option Explicit
 
-Const VERSION = 101302 ' 1.1.2
+Const VERSION = 101303 ' 1.1.3
 
 '!if defined(PICOMITEVGA)
   '!replace { Option Simulate "Colour Maximite 2" } { Option Simulate "PicoMiteVGA" }
@@ -24,6 +24,7 @@ Const VERSION = 101302 ' 1.1.2
 If Mm.Device$ = "MMB4L" Then
   Option Simulate "Colour Maximite 2"
   Option CodePage CMM2
+  Option Console Serial
 EndIf
 
 #Include "splib/system.inc"
